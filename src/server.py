@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from src.memory_store import get_repository
-from src.models import OutcomeTag, next_chunk_id
+from src.models import next_chunk_id
 
 # ── Request / Response models ─────────────────────────────────────────────────
 
@@ -98,8 +98,6 @@ def create_memory(body: CreateChunkRequest) -> JSONResponse:
     [MOCK] Phase 1: stores in-memory dict.
     Real implementation → Neo4jMemoryRepository.create_chunk()
     """
-    from src.models import TagTree
-
     chunk_id = next_chunk_id()
     now = datetime.now(timezone.utc).isoformat()
 

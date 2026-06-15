@@ -5,10 +5,7 @@ Real implementation → memory_store/repository.py::Neo4jMemoryRepository
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from src.models import ChunkRelationship, MemoryChunk, OutcomeTag
+from typing import Any
 
 
 class MockMemoryRepository:

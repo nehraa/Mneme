@@ -4,7 +4,6 @@ Real implementation → memory_store/repository.py::Neo4jMemoryRepository
 """
 from __future__ import annotations
 
-import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any

@@ -1,0 +1,1104 @@
+===== FILE: src/__init__.py =====
+"""Mneme — Agentic Hybrid Memory System."""
+
+__version__ = "0.1.0"
+
+===== FILE: src/config.py =====
+"""
+[MOCK] Config — loaded from .env or environment variables.
+Real implementation: values come from env vars; mock uses hardcoded defaults.
+Real path: this file stays, values are loaded from os.environ / python-dotenv.
+"""
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def _getenv(key: str, default: str | None = None) -> str | None:
+    return os.environ.get(key, default)
+
+
+@dataclass
+class LLMConfig:
+    """LLM provider configuration."""
+
+    # Anthropic-compatible API (for chunking + boundary definition)
+    anthropic_api_key: str | None = field(
+        default_factory=lambda: _getenv("ANTHROPIC_API_KEY")
+    )
+    anthropic_base_url: str = field(
+        default_factory=lambda: _getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+    )
+
+    # Gemini (for embedding + tag-sort during retrieval)
+    gemini_api_key: str = field(
+        default_factory=lambda: _getenv(
+            "GEMINI_API_KEY", "AIzaSyAQR7zEAhU5Gp_q2JXNkokN0c8AOYlWgQI"
+        )
+    )
+    gemini_embedding_model: str = field(
+        default_factory=lambda: _getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2")
+    )
+
+    # Ollama (local intent detection)
+    ollama_base_url: str = field(
+        default_factory=lambda: _getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    )
+    ollama_model: str = field(
+        default_factory=lambda: _getenv("OLLAMA_MODEL", "phi-4-mini")
+    )
+
+
+@dataclass
+class QdrantConfig:
+    """Qdrant vector store configuration."""
+
+    host: str = field(default_factory=lambda: _getenv("QDRANT_HOST", "http://localhost:6333"))
+    collection: str = field(default_factory=lambda: _getenv("QDRANT_COLLECTION", "mneme_chunks"))
+    vector_size: int = 768  # gemini-embedding-2 dimension
+
+
+@dataclass
+class Neo4jConfig:
+    """Neo4j graph database configuration."""
+
+    uri: str = field(default_factory=lambda: _getenv("NEO4J_URI", "bolt://localhost:7687"))
+    user: str = field(default_factory=lambda: _getenv("NEO4J_USER", "neo4j"))
+    password: str = field(default_factory=lambda: _getenv("NEO4J_PASSWORD", "password"))
+
+
+@dataclass
+class ServerConfig:
+    """HTTP server configuration."""
+
+    host: str = field(default_factory=lambda: _getenv("MNEME_HOST", "localhost"))
+    port: int = field(default_factory=lambda: int(_getenv("MNEME_PORT", "8080")))
+
+
+@dataclass
+class MnemeConfig:
+    """Top-level configuration container."""
+
+    llm: LLMConfig = field(default_factory=LLMConfig)
+    qdrant: QdrantConfig = field(default_factory=QdrantConfig)
+    neo4j: Neo4jConfig = field(default_factory=Neo4jConfig)
+    server: ServerConfig = field(default_factory=ServerConfig)
+
+
+# Global singleton — lazily initialized
+_config: MnemeConfig | None = None
+
+
+def get_config() -> MnemeConfig:
+    global _config
+    if _config is None:
+        _config = MnemeConfig()
+    return _config
+
+===== FILE: src/memory_store/__init__.py =====
+"""Memory store module — CRUD for Memory Chunks and Graph Edges."""
+from src.memory_store.repository import MemoryRepository, MockMemoryRepository
+
+__all__ = ["MemoryRepository", "MockMemoryRepository", "get_repository"]
+
+
+def get_repository(use_mock: bool = True) -> MemoryRepository:
+    """
+    Factory — returns the mock by default so Phase 1 can verify without Neo4j running.
+    Pass use_mock=False to get the real Neo4j-backed implementation.
+    Real implementation → memory_store/repository.py::Neo4jMemoryRepository
+    """
+    if use_mock:
+        return MockMemoryRepository()
+    # Real path: return Neo4jMemoryRepository(config=get_config().neo4j)
+    raise NotImplementedError(
+        "[MOCK] Real Neo4j repository not yet implemented. "
+        "Set use_mock=True or implement memory_store/repository.py::Neo4jMemoryRepository"
+    )
+
+===== FILE: src/memory_store/repository.py =====
+"""
+[MOCK] Memory Repository — Phase 1 mock implementation.
+Real implementation → memory_store/repository.py::Neo4jMemoryRepository
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.models import ChunkRelationship, MemoryChunk, OutcomeTag
+
+
+class MockMemoryRepository:
+    """
+    [MOCK] In-memory mock for Phase 1 verification.
+    Stores chunks in a dict. Real backend is Neo4j.
+
+    Phase 1 is "done" when:
+    - All CRUD endpoints return correct JSON schema
+    - All mock records have _mock: True
+    - Real Neo4j path is documented in each method docstring
+    """
+
+    def __init__(self) -> None:
+        self._chunks: dict[str, dict[str, Any]] = {}
+        self._edges: list[dict[str, Any]] = []
+
+    # ── Chunk CRUD ─────────────────────────────────────────────────────────────
+
+    def create_chunk(self, chunk: dict[str, Any]) -> dict[str, Any]:
+        """
+        [MOCK] Store a memory chunk in-memory.
+        Real implementation → Neo4jMemoryRepository.create_chunk()
+        """
+        record = {**chunk, "_mock": True}
+        self._chunks[chunk["chunk_id"]] = record
+        return record
+
+    def get_chunk(self, chunk_id: str) -> dict[str, Any] | None:
+        """
+        [MOCK] Retrieve a chunk by ID.
+        Real implementation → Neo4jMemoryRepository.get_chunk()
+        """
+        return self._chunks.get(chunk_id)
+
+    def update_chunk_tags(
+        self, chunk_id: str, tags: list[str]
+    ) -> dict[str, Any] | None:
+        """
+        [MOCK] Update tags on an existing chunk.
+        Real implementation → Neo4jMemoryRepository.update_chunk_tags()
+        """
+        chunk = self._chunks.get(chunk_id)
+        if chunk is None:
+            return None
+        chunk["tags"] = tags
+        return chunk
+
+    def list_chunks(
+        self,
+        tag: str | None = None,
+        session_id: str | None = None,
+        outcome_tag: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """
+        [MOCK] List chunks filtered by tag / session / outcome.
+        Real implementation → Neo4jMemoryRepository.list_chunks()
+        """
+        results = list(self._chunks.values())
+
+        if tag:
+            results = [c for c in results if tag in c.get("tags", [])]
+        if session_id:
+            results = [c for c in results if c.get("session_id") == session_id]
+        if outcome_tag:
+            results = [c for c in results if c.get("outcome_tag") == outcome_tag]
+
+        return results[:limit]
+
+    def touch_chunk(self, chunk_id: str) -> None:
+        """
+        [MOCK] Update last_accessed timestamp (used for recency boost).
+        Real implementation → Neo4jMemoryRepository.touch_chunk()
+        """
+        chunk = self._chunks.get(chunk_id)
+        if chunk:
+            chunk["last_accessed"] = datetime.now(timezone.utc).isoformat()
+
+    # ── Relationship CRUD ─────────────────────────────────────────────────────
+
+    def create_edge(self, edge: dict[str, Any]) -> dict[str, Any]:
+        """
+        [MOCK] Store a graph edge.
+        Real implementation → Neo4jMemoryRepository.create_edge()
+        """
+        record = {**edge, "_mock": True}
+        self._edges.append(record)
+        return record
+
+    def get_related_chunks(
+        self, chunk_id: str, depth: int = 1
+    ) -> list[dict[str, Any]]:
+        """
+        [MOCK] Traverse graph edges from a chunk.
+        Real implementation → Neo4jMemoryRepository.get_related_chunks()
+        """
+        related = []
+        for edge in self._edges:
+            if edge.get("source_chunk_id") == chunk_id:
+                target = self._chunks.get(edge.get("target_chunk_id", ""))
+                if target:
+                    related.append(
+                        {
+                            "chunk_id": edge.get("target_chunk_id"),
+                            "type": edge.get("relationship_type"),
+                            "reason": edge.get("reason", ""),
+                            "chunk": target,
+                        }
+                    )
+            if edge.get("target_chunk_id") == chunk_id:
+                source = self._chunks.get(edge.get("source_chunk_id", ""))
+                if source:
+                    related.append(
+                        {
+                            "chunk_id": edge.get("source_chunk_id"),
+                            "type": edge.get("relationship_type"),
+                            "reason": edge.get("reason", ""),
+                            "chunk": source,
+                        }
+                    )
+        return related
+
+    def get_contradicting_chunks(
+        self, target_file: str, session_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        [MOCK] Find chunks with 'contradicts' edges for the memory guard.
+        Real implementation → Neo4jMemoryRepository.get_contradicting_chunks()
+        """
+        contradicting = []
+        for edge in self._edges:
+            if edge.get("relationship_type") == "contradicts":
+                source = self._chunks.get(edge.get("source_chunk_id", ""))
+                if source and source.get("source_file") == target_file:
+                    if session_id is None or source.get("session_id") == session_id:
+                        contradicting.append(source)
+        return contradicting
+
+
+# ── Alias for the interface ───────────────────────────────────────────────────
+MemoryRepository = MockMemoryRepository
+
+===== FILE: src/models.py =====
+"""
+[MOCK] In-memory models for Phase 1 — matching the real Neo4j data model.
+Real implementation → memory_store/repository.py::Neo4jMemoryRepository
+"""
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class OutcomeTag(str, Enum):
+    """Outcome tag — tracks what happened when this chunk was 'executed'."""
+
+    WORK_DONE = "work_done"
+    NO_TOOL_CALLED = "no_tool_called"
+    SUCCESSFULLY_CALLED = "successfully_called"
+    FAILED = "failed"
+    STOPPED = "stopped"
+
+
+OUTCOME_PRIORITY = {
+    OutcomeTag.FAILED: 1.0,
+    OutcomeTag.STOPPED: 0.8,
+    OutcomeTag.WORK_DONE: 0.6,
+    OutcomeTag.SUCCESSFULLY_CALLED: 0.4,
+    OutcomeTag.NO_TOOL_CALLED: 0.2,
+}
+
+
+class RelationshipType(str, Enum):
+    """Graph edge types — how two chunks relate."""
+
+    SAME_TOOL_CALL = "same_tool_call"
+    PREREQUISITE = "prerequisite"
+    FOLLOWS = "follows"
+    CONTRADICTS = "contradicts"
+    SAME_CONCEPT = "same_concept"
+
+
+class TagTree(BaseModel):
+    """
+    Parsed tag hierarchy generated by LLM during ingestion.
+    Level 1 (category):  tool | memory | skill | context
+    Level 2 (entity):    auth | db | http | file_io | ...
+    Level 3 (outcome):   failed | successfully_called | no_tool_called | stopped
+    Level 4 (error):     token_expired | timeout | auth_rejected | ...
+    """
+
+    category: str = Field(default="tool", description="Level 1: tool | memory | skill | context")
+    entity: str | None = Field(default=None, description="Level 2: auth, db, http, ...")
+    outcome: str | None = Field(default=None, description="Level 3: failed, successfully_called, ...")
+    error: str | None = Field(default=None, description="Level 4: token_expired, timeout, ...")
+
+
+class MemoryChunk(BaseModel):
+    """
+    Core memory record — the atomic unit of memory in Mneme.
+
+    Attributes:
+        chunk_id: Unique identifier, e.g. "mem_001"
+        session_id: Conversation file path — the session this chunk belongs to
+        project_root: Git repo root for namespace isolation
+        content: The actual chunk text
+        page_order: Position within the source file (page/linear index)
+        tags: Flat tag list, e.g. ["tool=auth", "outcome=failed", "error=token_expired"]
+        tag_tree: Parsed hierarchical tags
+        linked_chunks: Graph edges — IDs of related chunks
+        outcome_tag: The primary outcome classification
+        source_file: Absolute path of the source file this chunk came from
+        created_at: When this chunk was first stored
+        last_accessed: Last time this chunk was retrieved (for recency boost)
+    """
+
+    chunk_id: str
+    session_id: str
+    project_root: str
+
+    content: str
+    page_order: int = 0
+
+    tags: list[str] = Field(default_factory=list)
+    tag_tree: TagTree = Field(default_factory=TagTree)
+    linked_chunks: list[str] = Field(default_factory=list)
+
+    outcome_tag: OutcomeTag = OutcomeTag.WORK_DONE
+    source_file: str | None = None
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_accessed: datetime | None = None
+
+    model_config = {
+        "use_enum_values": True,
+    }
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to plain dict — matches the API response shape."""
+        return {
+            "chunk_id": self.chunk_id,
+            "session_id": self.session_id,
+            "project_root": self.project_root,
+            "content": self.content,
+            "page_order": self.page_order,
+            "tags": self.tags,
+            "tag_tree": self.tag_tree.model_dump(),
+            "linked_chunks": self.linked_chunks,
+            "outcome_tag": self.outcome_tag,
+            "source_file": self.source_file,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_accessed": (
+                self.last_accessed.isoformat() if self.last_accessed else None
+            ),
+        }
+
+
+class ChunkRelationship(BaseModel):
+    """
+    A directed edge in the cross-chunk graph.
+    Created by the LLM during ingestion to capture relationships between chunks.
+    """
+
+    source_chunk_id: str
+    target_chunk_id: str
+    relationship_type: RelationshipType
+    reason: str = Field(
+        default="",
+        description="LLM-provided explanation of why these chunks are related",
+    )
+
+    model_config = {
+        "use_enum_values": True,
+    }
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_chunk_id": self.source_chunk_id,
+            "target_chunk_id": self.target_chunk_id,
+            "relationship_type": self.relationship_type,
+            "reason": self.reason,
+        }
+
+
+# ── Helper constructors ───────────────────────────────────────────────────────
+
+_COUNTER = 0
+
+
+def next_chunk_id() -> str:
+    global _COUNTER
+    _COUNTER += 1
+    return f"mem_{_COUNTER:03d}"
+
+===== FILE: src/server.py =====
+"""
+[MOCK] Mneme HTTP Server — Phase 1 CRUD endpoints.
+Real implementation: all endpoints call Neo4jMemoryRepository (not yet wired).
+Phase 1 is "done" when all endpoints return correct JSON and mock records have _mock: True.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from src.memory_store import get_repository
+from src.models import OutcomeTag, next_chunk_id
+
+# ── Request / Response models ─────────────────────────────────────────────────
+
+
+class CreateChunkRequest(BaseModel):
+    """Payload for POST /memories."""
+
+    content: str = Field(..., description="The chunk text content")
+    session_id: str = Field(..., description="Conversation file path (session ID)")
+    project_root: str = Field(default="", description="Git repo root for namespace")
+    tags: list[str] = Field(default_factory=list)
+    source_file: str | None = None
+    page_order: int = 0
+    outcome_tag: str = Field(default="work_done")
+    linked_chunks: list[str] = Field(default_factory=list)
+
+
+class UpdateTagsRequest(BaseModel):
+    """Payload for PATCH /memories/{chunk_id}/tags."""
+
+    tags: list[str]
+
+
+class IngestRequest(BaseModel):
+    """Payload for POST /ingest (Phase 2 stub)."""
+
+    file_paths: list[str]
+
+
+class RetrieveRequest(BaseModel):
+    """Payload for POST /retrieve (Phase 4 stub)."""
+
+    prompt_context: str
+    session_id: str | None = None
+
+
+class GuardRequest(BaseModel):
+    """Payload for POST /guard (Phase 5 stub)."""
+
+    proposed_change: str
+    target_file: str
+    session_id: str | None = None
+
+
+# ── App ────────────────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="Mneme",
+    version="0.1.0",
+    description="Agentic hybrid memory system with RAG",
+)
+
+# Lazy-initialized repository — swap get_repository(use_mock=False) for real Neo4j
+_repo: Any = None
+
+
+def repo() -> Any:
+    global _repo
+    if _repo is None:
+        _repo = get_repository(use_mock=True)
+    return _repo
+
+
+# ── Health ────────────────────────────────────────────────────────────────────
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "version": "0.1.0"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 1 — Memory Store CRUD
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@app.post("/memories", status_code=201, tags=["Phase 1"])
+def create_memory(body: CreateChunkRequest) -> JSONResponse:
+    """
+    POST /memories — create a new memory chunk.
+
+    [MOCK] Phase 1: stores in-memory dict.
+    Real implementation → Neo4jMemoryRepository.create_chunk()
+    """
+    from src.models import TagTree
+
+    chunk_id = next_chunk_id()
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Parse flat tags into a simple tag_tree dict
+    tag_tree = _parse_tags(body.tags)
+
+    record = {
+        "_mock": True,
+        "chunk_id": chunk_id,
+        "session_id": body.session_id,
+        "project_root": body.project_root,
+        "content": body.content,
+        "page_order": body.page_order,
+        "tags": body.tags,
+        "tag_tree": tag_tree,
+        "linked_chunks": body.linked_chunks,
+        "outcome_tag": body.outcome_tag,
+        "source_file": body.source_file,
+        "created_at": now,
+        "last_accessed": None,
+    }
+
+    repo().create_chunk(record)
+    return JSONResponse(content=record, status_code=201)
+
+
+@app.get("/memories/{chunk_id}", tags=["Phase 1"])
+def get_memory(chunk_id: str) -> JSONResponse:
+    """
+    GET /memories/{chunk_id} — retrieve a chunk by ID.
+
+    [MOCK] Phase 1: looks up in-memory dict.
+    Real implementation → Neo4jMemoryRepository.get_chunk()
+    """
+    chunk = repo().get_chunk(chunk_id)
+    if chunk is None:
+        raise HTTPException(status_code=404, detail=f"Chunk {chunk_id} not found")
+    repo().touch_chunk(chunk_id)
+    return JSONResponse(content=chunk)
+
+
+@app.patch("/memories/{chunk_id}/tags", tags=["Phase 1"])
+def update_memory_tags(
+    chunk_id: str, body: UpdateTagsRequest
+) -> JSONResponse:
+    """
+    PATCH /memories/{chunk_id}/tags — update tags on an existing chunk.
+
+    [MOCK] Phase 1: updates in-memory dict.
+    Real implementation → Neo4jMemoryRepository.update_chunk_tags()
+    """
+    chunk = repo().update_chunk_tags(chunk_id, body.tags)
+    if chunk is None:
+        raise HTTPException(status_code=404, detail=f"Chunk {chunk_id} not found")
+    return JSONResponse(content=chunk)
+
+
+@app.get("/memories", tags=["Phase 1"])
+def list_memories(
+    tag: str | None = Query(None, description="Filter by tag (e.g. 'tool=auth')"),
+    session_id: str | None = Query(None, description="Filter by session ID"),
+    outcome: str | None = Query(None, description="Filter by outcome tag"),
+    limit: int = Query(50, ge=1, le=500),
+) -> JSONResponse:
+    """
+    GET /memories — list chunks with optional filters.
+
+    [MOCK] Phase 1: filters in-memory list.
+    Real implementation → Neo4jMemoryRepository.list_chunks()
+    """
+    chunks = repo().list_chunks(
+        tag=tag, session_id=session_id, outcome_tag=outcome, limit=limit
+    )
+    return JSONResponse(content={"chunks": chunks, "count": len(chunks)})
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 2 — Ingestion Pipeline (stub)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@app.post("/ingest", tags=["Phase 2"])
+def ingest(body: IngestRequest) -> JSONResponse:
+    """
+    POST /ingest — ingest files and create chunks.
+
+    [MOCK STUB] Phase 2: returns a mock manifest without doing any LLM work.
+    Real implementation → ingestion/pipeline.py::IngestionPipeline.run()
+    """
+    mock_response = {
+        "_mock": True,
+        "chunks_created": 47,
+        "edges_created": 12,
+        "session_id": body.file_paths[0] if body.file_paths else "unknown",
+        "tag_tree_summary": {
+            "tool=auth": {"failed": 5, "successfully_called": 31, "no_tool_called": 11},
+            "tool=db": {"failed": 2, "successfully_called": 8, "stopped": 1},
+        },
+        "chunks": [
+            {
+                "id": "mem_001",
+                "content": "[MOCK] Auth flow failed at token_refresh — error: token_expired",
+                "tags": ["tool=auth", "outcome=failed"],
+                "linked_chunks": ["mem_007"],
+                "page_order": 3,
+            },
+        ],
+        "_implementation_note": (
+            "Real: ingestion/pipeline.py::IngestionPipeline.run() — "
+            "calls LLM with 512K context for chunk boundaries + edges + tags"
+        ),
+    }
+    return JSONResponse(content=mock_response)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 3 — Graph Index (stub)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@app.get("/graph/related/{chunk_id}", tags=["Phase 3"])
+def get_related_chunks(
+    chunk_id: str, depth: int = Query(1, ge=1, le=5)
+) -> JSONResponse:
+    """
+    GET /graph/related/{chunk_id} — get chunks related to this chunk.
+
+    [MOCK STUB] Phase 3: returns mock relationships without Neo4j.
+    Real implementation → graph/index.py::GraphIndex.get_related()
+    """
+    mock_response = {
+        "_mock": True,
+        "chunk_id": chunk_id,
+        "relationships": [
+            {
+                "chunk_id": "mem_007",
+                "type": "same_tool_call",
+                "reason": "Both deal with token refresh in auth flow — same OAuth endpoint",
+            },
+            {
+                "chunk_id": "mem_012",
+                "type": "prerequisite",
+                "reason": "mem_012 sets up the auth token that mem_001 tried to use and failed",
+            },
+        ],
+        "_implementation_note": (
+            "Real: graph/index.py::GraphIndex.get_related() — "
+            "queries Neo4j for edges from this chunk_id"
+        ),
+    }
+    return JSONResponse(content=mock_response)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 4 — Tag-Aware Retrieval Engine (stub)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@app.post("/retrieve", tags=["Phase 4"])
+def retrieve(body: RetrieveRequest) -> JSONResponse:
+    """
+    POST /retrieve — given a prompt, retrieve relevant memories.
+
+    [MOCK STUB] Phase 4: returns mock injection without doing real retrieval.
+    Real implementation → retrieval/engine.py::RetrievalEngine.retrieve()
+    """
+    mock_response = {
+        "_mock": True,
+        "detected_tags": ["outcome=failed", "tool=auth", "error=token_expired"],
+        "intent": "continue_auth_flow_retry",
+        "injected_context": (
+            "Relevant memory from last session:\n"
+            "[mem_001] Auth flow failed at token_refresh — error: token_expired. "
+            "You tried fixing it by adding retry logic but stopped at line 42.\n"
+            "[mem_007] Related: same tool call (auth) — successfully called after applying the fix."
+        ),
+        "chunks_used": ["mem_001", "mem_007"],
+        "tag_matches": {
+            "outcome=failed": "exact",
+            "tool=auth": "exact",
+            "error=token_expired": "partial",
+        },
+        "priority_scores": {"mem_001": 0.94, "mem_007": 0.71},
+        "_implementation_note": (
+            "Real: retrieval/engine.py::RetrievalEngine.retrieve() — "
+            "calls Ollama intent detection + Qdrant search + Gemini tag-sort"
+        ),
+    }
+    return JSONResponse(content=mock_response)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 5 — Memory Guard (stub)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@app.post("/guard", tags=["Phase 5"])
+def guard(body: GuardRequest) -> JSONResponse:
+    """
+    POST /guard — check if proposed change contradicts a past failed attempt.
+
+    [MOCK STUB] Phase 5: returns mock warning without real graph lookup.
+    Real implementation → guard/diff_engine.py::DiffEngine.check()
+    """
+    mock_response = {
+        "_mock": True,
+        "guard_triggered": True,
+        "warning": (
+            "You tried JWT in auth/token.py in session sessions/2024-03-10 and it "
+            "failed: JWT library was incompatible with the existing session middleware. "
+            "mem_042 (failed, tool=auth, error=incompatible_library). "
+            "Are you sure you want to retry?"
+        ),
+        "related_memories": ["mem_042"],
+        "override_allowed": True,
+        "_implementation_note": (
+            "Real: guard/diff_engine.py::DiffEngine.check() — "
+            "queries Neo4j for 'contradicts' edges + Qdrant semantic similarity"
+        ),
+    }
+    return JSONResponse(content=mock_response)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 6 — Pre-Tool Hook / mneme_inject (stub)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@app.post("/inject", tags=["Phase 6"])
+def inject(message: str, session_id: str | None = None) -> JSONResponse:
+    """
+    POST /inject — mneme_inject equivalent over HTTP.
+    Orchestrates: Phase 4 retrieve + Phase 5 guard, returns injection context.
+
+    [MOCK STUB] Phase 6: returns full mock injection without real backend.
+    Real implementation → hook/mcp_tool.py::Mneme MCP tool
+    """
+    mock_response = {
+        "_mock": True,
+        "[Mneme] Pre-tool hook fired": True,
+        "session": session_id or "default",
+        "detected_intent": "continue_auth_flow_retry",
+        "retrieved_chunks": ["mem_001", "mem_007"],
+        "memory_guard": "PASSED (no contradicting failed attempts)",
+        "injected_context": (
+            "Relevant memory from last session:\n"
+            "[mem_001] Auth flow failed at token_refresh...\n"
+            "[mem_007] Same tool call — successfully called after..."
+        ),
+        "injected_context_length": 187,
+        "_implementation_note": (
+            "Real: hook/mcp_tool.py::mneme_inject — "
+            "MCP tool that fires before every outbound API call in Claude Code"
+        ),
+    }
+    return JSONResponse(content=mock_response)
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def _parse_tags(tags: list[str]) -> dict[str, Any]:
+    """Parse flat tags into a TagTree-like dict."""
+    tag_tree: dict[str, Any] = {"category": "tool"}
+    for tag in tags:
+        if "=" in tag:
+            key, val = tag.split("=", 1)
+            if key in ("tool", "memory", "skill", "context"):
+                tag_tree["category"] = key
+            elif key in ("failed", "successfully_called", "no_tool_called", "stopped", "work_done"):
+                tag_tree["outcome"] = val
+            elif key in ("token_expired", "timeout", "auth_rejected"):
+                tag_tree["error"] = val
+            else:
+                tag_tree[key] = val
+    return tag_tree
+
+===== FILE: .qwen/reasoning/quality-gates/post-commit-20260615-161747/stage-04-run-tests.md =====
+# Stage 4: Run Existing Tests
+
+**Status:** PASS
+
+```
+No test runner detected
+```
+
+===== FILE: .qwen/reasoning/quality-gates/post-commit-20260615-161747/stage-05-add-tests.md =====
+# Stage 5: Add/Update Tests
+
+**Status:** PASS
+
+✅ No source files changed.
+
+===== FILE: .qwen/reasoning/quality-gates/post-commit-20260615-161825/stage-04-run-tests.md =====
+# Stage 4: Run Existing Tests
+
+**Status:** PASS
+
+```
+No test runner detected
+```
+
+===== FILE: .qwen/reasoning/quality-gates/post-commit-20260615-161825/stage-05-add-tests.md =====
+# Stage 5: Add/Update Tests
+
+**Status:** PASS
+
+✅ No source files changed.
+
+===== FILE: claude-code/verification/pass-1-test-sync.md =====
+# Pass 1: Test-Sync
+
+**Status:** PASS
+**Time:** 2026-06-15T15:34:58+05:30
+**Attempt:** 10
+
+## Details
+
+## Test Sync Results\n\n
+
+## Changed Files
+
+```\n.qwen/
+claude-code/
+```
+
+---
+**Next:** Proceed to next pass
+
+===== FILE: tests/__init__.py =====
+
+===== FILE: tests/test_memory_store.py =====
+"""Tests for Phase 1: Memory Store CRUD + API endpoints."""
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+from src.server import app
+from src.memory_store import get_repository
+
+client = TestClient(app)
+
+
+class TestHealth:
+    def test_health(self):
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+
+
+class TestCreateMemory:
+    def test_create_chunk_returns_mock_with_correct_schema(self):
+        payload = {
+            "content": "Auth flow failed at token_refresh — error: token_expired at src/auth/login.py:42",
+            "session_id": "/Users/abhinav/chat/sessions/2024-03-15-auth-flow.md",
+            "project_root": "/Users/abhinav/git/myproject",
+            "tags": ["tool=auth", "outcome=failed", "error=token_expired"],
+            "source_file": "src/auth/login.py",
+            "page_order": 3,
+            "outcome_tag": "failed",
+            "linked_chunks": ["mem_007", "mem_012"],
+        }
+        resp = client.post("/memories", json=payload)
+        assert resp.status_code == 201
+        data = resp.json()
+
+        # Schema checks
+        assert data["_mock"] is True
+        assert data["chunk_id"].startswith("mem_")
+        assert data["content"] == payload["content"]
+        assert data["tags"] == payload["tags"]
+        assert data["outcome_tag"] == "failed"
+        assert data["source_file"] == "src/auth/login.py"
+        assert data["page_order"] == 3
+        assert data["linked_chunks"] == ["mem_007", "mem_012"]
+        assert data["session_id"] == payload["session_id"]
+        assert data["project_root"] == payload["project_root"]
+        assert data["created_at"] is not None
+        assert data["last_accessed"] is None
+
+    def test_create_chunk_all_outcome_tags(self):
+        for outcome in ["work_done", "no_tool_called", "successfully_called", "failed", "stopped"]:
+            payload = {
+                "content": f"Test content for {outcome}",
+                "session_id": "/test/session.md",
+                "tags": [f"outcome={outcome}"],
+                "outcome_tag": outcome,
+            }
+            resp = client.post("/memories", json=payload)
+            assert resp.status_code == 201, f"Failed for outcome={outcome}"
+            assert resp.json()["outcome_tag"] == outcome
+
+
+class TestGetMemory:
+    def test_get_chunk_not_found(self):
+        resp = client.get("/memories/mem_99999")
+        assert resp.status_code == 404
+
+    def test_get_chunk_updates_last_accessed(self):
+        # Create
+        create_resp = client.post(
+            "/memories",
+            json={
+                "content": "Test chunk",
+                "session_id": "/test/session.md",
+                "tags": [],
+            },
+        )
+        chunk_id = create_resp.json()["chunk_id"]
+
+        # Get
+        get_resp = client.get(f"/memories/{chunk_id}")
+        assert get_resp.status_code == 200
+        # last_accessed should now be set
+        assert get_resp.json()["last_accessed"] is not None
+
+
+class TestUpdateTags:
+    def test_update_tags_success(self):
+        # Create
+        create_resp = client.post(
+            "/memories",
+            json={
+                "content": "Test chunk",
+                "session_id": "/test/session.md",
+                "tags": ["tool=auth"],
+            },
+        )
+        chunk_id = create_resp.json()["chunk_id"]
+
+        # Update
+        update_resp = client.patch(
+            f"/memories/{chunk_id}/tags",
+            json={"tags": ["tool=auth", "outcome=failed", "error=new_error"]},
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["tags"] == [
+            "tool=auth",
+            "outcome=failed",
+            "error=new_error",
+        ]
+
+    def test_update_tags_not_found(self):
+        resp = client.patch(
+            "/memories/mem_99999/tags",
+            json={"tags": ["tool=auth"]},
+        )
+        assert resp.status_code == 404
+
+
+class TestListMemories:
+    def test_list_all(self):
+        resp = client.get("/memories")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "chunks" in data
+        assert "count" in data
+
+    def test_list_filter_by_tag(self):
+        # Create chunk with known tag
+        client.post(
+            "/memories",
+            json={
+                "content": "DB related chunk",
+                "session_id": "/test/session.md",
+                "tags": ["tool=db", "outcome=failed"],
+                "outcome_tag": "failed",
+            },
+        )
+        resp = client.get("/memories?tag=tool=db")
+        assert resp.status_code == 200
+        chunks = resp.json()["chunks"]
+        assert all("tool=db" in c["tags"] for c in chunks)
+
+    def test_list_filter_by_outcome(self):
+        resp = client.get("/memories?outcome=failed")
+        assert resp.status_code == 200
+        chunks = resp.json()["chunks"]
+        assert all(c["outcome_tag"] == "failed" for c in chunks)
+
+    def test_list_filter_by_session(self):
+        resp = client.get("/memories?session_id=/test/session.md")
+        assert resp.status_code == 200
+        chunks = resp.json()["chunks"]
+        assert all(c["session_id"] == "/test/session.md" for c in chunks)
+
+
+class TestIngestStub:
+    def test_ingest_returns_mock_manifest(self):
+        resp = client.post(
+            "/ingest",
+            json={"file_paths": ["src/auth/*.py", "tests/auth/*.py"]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["_mock"] is True
+        assert data["chunks_created"] == 47
+        assert data["edges_created"] == 12
+        assert "tag_tree_summary" in data
+        assert "_implementation_note" in data
+
+
+class TestGraphStub:
+    def test_get_related_returns_mock(self):
+        resp = client.get("/graph/related/mem_001")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["_mock"] is True
+        assert "relationships" in data
+        assert len(data["relationships"]) == 2
+        assert data["relationships"][0]["type"] == "same_tool_call"
+        assert "_implementation_note" in data
+
+
+class TestRetrieveStub:
+    def test_retrieve_returns_mock_injection(self):
+        resp = client.post(
+            "/retrieve",
+            json={
+                "prompt_context": "请继续修复auth flow，上次你停在token refresh这里",
+                "session_id": "sessions/2024-03-15-auth-flow.md",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["_mock"] is True
+        assert data["intent"] == "continue_auth_flow_retry"
+        assert "chunks_used" in data
+        assert "priority_scores" in data
+        assert data["priority_scores"]["mem_001"] > data["priority_scores"]["mem_007"]
+
+
+class TestGuardStub:
+    def test_guard_returns_mock_warning(self):
+        resp = client.post(
+            "/guard",
+            json={
+                "proposed_change": "rewrite auth/token.py to use JWT instead of session cookies",
+                "target_file": "auth/token.py",
+                "session_id": "sessions/2024-03-15-auth-flow.md",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["_mock"] is True
+        assert data["guard_triggered"] is True
+        assert data["override_allowed"] is True
+        assert "mem_042" in data["warning"]
+
+
+class TestInjectStub:
+    def test_inject_returns_full_mock(self):
+        resp = client.post(
+            "/inject",
+            params={
+                "message": "请继续修复auth flow",
+                "session_id": "sessions/2024-03-15-auth-flow.md",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["_mock"] is True
+        assert "[Mneme] Pre-tool hook fired" in data
+        assert data["memory_guard"] == "PASSED (no contradicting failed attempts)"
+        assert len(data["retrieved_chunks"]) == 2
+
