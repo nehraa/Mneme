@@ -184,33 +184,21 @@ def ingest(body: IngestRequest) -> JSONResponse:
     """
     POST /ingest — ingest files and create chunks.
 
-    [MOCK STUB] Phase 2: returns a mock manifest without doing any LLM work.
+    [MOCK] Phase 2: uses IngestionPipeline with use_mock=True.
+    Swap use_mock=False to activate real MiniMax LLM chunking.
     Real implementation → ingestion/pipeline.py::IngestionPipeline.run()
     """
-    mock_response = {
-        "_mock": True,
-        "chunks_created": 47,
-        "edges_created": 12,
-        "session_id": body.file_paths[0] if body.file_paths else "unknown",
-        "tag_tree_summary": {
-            "tool=auth": {"failed": 5, "successfully_called": 31, "no_tool_called": 11},
-            "tool=db": {"failed": 2, "successfully_called": 8, "stopped": 1},
-        },
-        "chunks": [
-            {
-                "id": "mem_001",
-                "content": "[MOCK] Auth flow failed at token_refresh — error: token_expired",
-                "tags": ["tool=auth", "outcome=failed"],
-                "linked_chunks": ["mem_007"],
-                "page_order": 3,
-            },
-        ],
-        "_implementation_note": (
-            "Real: ingestion/pipeline.py::IngestionPipeline.run() — "
-            "calls LLM with 512K context for chunk boundaries + edges + tags"
-        ),
-    }
-    return JSONResponse(content=mock_response)
+    from src.ingestion.pipeline import IngestionPipeline
+
+    session_id = body.file_paths[0] if body.file_paths else "unknown"
+    pipeline = IngestionPipeline(repository=repo(), use_mock=True)
+    result = pipeline.run(
+        file_paths=body.file_paths,
+        session_id=session_id,
+        project_root="",
+    )
+    result["_mock"] = True
+    return JSONResponse(content=result)
 
 
 # ════════════════════════════════════════════════════════════════════════════

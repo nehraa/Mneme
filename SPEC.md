@@ -201,13 +201,13 @@ $ curl -X POST http://localhost:8080/ingest \
 ```
 
 **Phase 2 acceptance criteria:**
-- [ ] Ingestion manifest schema defined
-- [ ] LLM prompt for chunking+linking+tagging written (single 512K-context pass)
-- [ ] Chunk boundaries respect semantic units (function, class, test case — not arbitrary token splits)
-- [ ] Cross-chunk edges generated with relationship_type + reason
-- [ ] Outcome tags assigned per chunk (failed/success/stopped/etc.)
-- [ ] Mock prints correct structure; real Anthropic API path documented (Ollama fallback)
-- [ ] Tests: ingest a Python file, verify chunk count + edge count + tag assignment
+- [x] Ingestion manifest schema defined (see `src/ingestion/llm_client.py::ChunkingResult`)
+- [x] LLM prompt for chunking+linking+tagging written (single 512K-context pass)
+- [x] Chunk boundaries respect semantic units (function, class, test case — not arbitrary token splits)
+- [x] Cross-chunk edges generated with relationship_type + reason
+- [x] Outcome tags assigned per chunk (work_done/successfully_called/failed/stopped/no_tool_called)
+- [x] MockIngestionPipeline returns correct structure; real path documented per method
+- [x] Tests: 12 tests covering mock pipeline + endpoint (see tests/test_ingestion.py)
 
 ---
 

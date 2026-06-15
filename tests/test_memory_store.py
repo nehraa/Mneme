@@ -1,11 +1,9 @@
 """Tests for Phase 1: Memory Store CRUD + API endpoints."""
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from src.server import app
-from src.memory_store import get_repository
 
 client = TestClient(app)
 
