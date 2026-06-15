@@ -78,6 +78,7 @@ class IngestionPipeline:
             except Exception as e:
                 # Log and continue — don't fail entire pipeline for one bad file
                 import structlog
+
                 logger = structlog.get_logger()
                 logger.warning("llm_chunking_failed", file=file_path, error=str(e))
                 continue
@@ -87,35 +88,42 @@ class IngestionPipeline:
                 chunk_id = chunk_data["chunk_id"]
                 all_chunk_ids.append(chunk_id)
 
-                self._repo.create_chunk({
-                    "chunk_id": chunk_id,
-                    "session_id": session_id,
-                    "project_root": project_root,
-                    "content": chunk_data["content"],
-                    "page_order": chunk_data.get("page_order", 0),
-                    "tags": chunk_data.get("tags", []),
-                    "source_file": chunk_data.get("source_file", file_path),
-                    "outcome_tag": self._extract_outcome_tag(chunk_data.get("tags", [])),
-                    "linked_chunks": [
-                        r["target_chunk_id"]
-                        for r in result.cross_chunk_relationships
-                        if r["source_chunk_id"] == chunk_id
-                    ],
-                })
+                self._repo.create_chunk(
+                    {
+                        "chunk_id": chunk_id,
+                        "session_id": session_id,
+                        "project_root": project_root,
+                        "content": chunk_data["content"],
+                        "page_order": chunk_data.get("page_order", 0),
+                        "tags": chunk_data.get("tags", []),
+                        "source_file": chunk_data.get("source_file", file_path),
+                        "outcome_tag": self._extract_outcome_tag(
+                            chunk_data.get("tags", [])
+                        ),
+                        "linked_chunks": [
+                            r["target_chunk_id"]
+                            for r in result.cross_chunk_relationships
+                            if r["source_chunk_id"] == chunk_id
+                        ],
+                    }
+                )
                 total_chunks += 1
 
             # Store graph edges
             for edge_data in result.cross_chunk_relationships:
-                self._repo.create_edge({
-                    "source_chunk_id": edge_data["source_chunk_id"],
-                    "target_chunk_id": edge_data["target_chunk_id"],
-                    "relationship_type": edge_data["relationship_type"],
-                    "reason": edge_data.get("reason", ""),
-                })
+                self._repo.create_edge(
+                    {
+                        "source_chunk_id": edge_data["source_chunk_id"],
+                        "target_chunk_id": edge_data["target_chunk_id"],
+                        "relationship_type": edge_data["relationship_type"],
+                        "reason": edge_data.get("reason", ""),
+                    }
+                )
                 total_edges += 1
 
         # Build tag tree summary
         from collections import Counter
+
         tag_counter: Counter[str] = Counter()
         for chunk_id in all_chunk_ids:
             chunk = self._repo.get_chunk(chunk_id)
@@ -140,7 +148,9 @@ class IngestionPipeline:
             "chunks": [
                 {
                     "id": cid,
-                    "tags": self._repo.get_chunk(cid).get("tags", []) if self._repo.get_chunk(cid) else [],
+                    "tags": self._repo.get_chunk(cid).get("tags", [])
+                    if self._repo.get_chunk(cid)
+                    else [],
                 }
                 for cid in all_chunk_ids
             ],

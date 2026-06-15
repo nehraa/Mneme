@@ -86,7 +86,9 @@ class ChunkingResult:
             "chunks": [
                 {
                     "id": c["chunk_id"],
-                    "content": c["content"][:100] + "..." if len(c["content"]) > 100 else c["content"],
+                    "content": c["content"][:100] + "..."
+                    if len(c["content"]) > 100
+                    else c["content"],
                     "tags": c["tags"],
                     "linked_chunks": [
                         r["target_chunk_id"]
@@ -118,7 +120,10 @@ class MiniMaxClient:
         model: str = "MiniMax-Text-01",
         timeout: float = 120.0,
     ) -> None:
-        self._api_key = api_key or "sk-cp-KjobHFSNe1A5LaEtTY0qrBV5l85bitrDDWkjO4VEtsGd6h8uTnRmbcuEQflj1FXbUwFX2L9S1Qt5_M-dqpFnX7qMGg7GUtGTfYp5EJJ05MVyuLN7N5WWoyA"
+        self._api_key = (
+            api_key
+            or "sk-cp-KjobHFSNe1A5LaEtTY0qrBV5l85bitrDDWkjO4VEtsGd6h8uTnRmbcuEQflj1FXbUwFX2L9S1Qt5_M-dqpFnX7qMGg7GUtGTfYp5EJJ05MVyuLN7N5WWoyA"
+        )
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
@@ -165,6 +170,7 @@ class MiniMaxClient:
         except json.JSONDecodeError:
             # Try to extract JSON from markdown code blocks
             import re
+
             match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
             if match:
                 parsed = json.loads(match.group(1))
@@ -174,7 +180,9 @@ class MiniMaxClient:
                 if match:
                     parsed = json.loads(match.group(1))
                 else:
-                    raise ValueError(f"Could not parse JSON from LLM response: {text[:200]}")
+                    raise ValueError(
+                        f"Could not parse JSON from LLM response: {text[:200]}"
+                    )
 
         return ChunkingResult(
             chunks=parsed.get("chunks", []),

@@ -140,9 +140,7 @@ def get_memory(chunk_id: str) -> JSONResponse:
 
 
 @app.patch("/memories/{chunk_id}/tags", tags=["Phase 1"])
-def update_memory_tags(
-    chunk_id: str, body: UpdateTagsRequest
-) -> JSONResponse:
+def update_memory_tags(chunk_id: str, body: UpdateTagsRequest) -> JSONResponse:
     """
     PATCH /memories/{chunk_id}/tags — update tags on an existing chunk.
 
@@ -355,7 +353,13 @@ def _parse_tags(tags: list[str]) -> dict[str, Any]:
             key, val = tag.split("=", 1)
             if key in ("tool", "memory", "skill", "context"):
                 tag_tree["category"] = key
-            elif key in ("failed", "successfully_called", "no_tool_called", "stopped", "work_done"):
+            elif key in (
+                "failed",
+                "successfully_called",
+                "no_tool_called",
+                "stopped",
+                "work_done",
+            ):
                 tag_tree["outcome"] = val
             elif key in ("token_expired", "timeout", "auth_rejected"):
                 tag_tree["error"] = val
