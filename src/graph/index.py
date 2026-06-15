@@ -115,11 +115,13 @@ class GraphIndex:
                     continue
                 visited_paths.add(path_key)
                 if len(new_path) > 1:
-                    chains.append({
-                        "path": new_path,
-                        "relationship_types": [r["type"]],
-                        "reason": r["reason"],
-                    })
+                    chains.append(
+                        {
+                            "path": new_path,
+                            "relationship_types": [r["type"]],
+                            "reason": r["reason"],
+                        }
+                    )
                 if len(new_path) <= depth:
                     _traverse(next_id, remaining_depth - 1, new_path)
 
