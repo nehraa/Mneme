@@ -1,3 +1,4 @@
+===== FILE: .env.example =====
 # Mneme Configuration
 # Copy this file to .env and fill in your keys
 
@@ -7,9 +8,7 @@
 ANTHROPIC_API_KEY=your_anthropic_compatible_api_key_here
 
 # Gemini API key (for tag-sort during retrieval — tried first, falls back to Ollama local)
-# Also used for chunk embedding via gemini-embedding-2
 GEMINI_API_KEY=AIzaSyAQR7zEAhU5Gp_q2JXNkokN0c8AOYlWgQI
-GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 
 # ── Vector Search ────────────────────────────────────────────────────────────
 
@@ -33,3 +32,33 @@ OLLAMA_MODEL=phi-4-mini  # or any 100-200M model you have pulled
 
 MNEME_HOST=localhost
 MNEME_PORT=8080
+
+===== FILE: .gitignore =====
+# Environment — NEVER commit actual keys
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local Neo4j / Qdrant data (if stored locally)
+data/
+
