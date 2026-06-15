@@ -143,10 +143,11 @@ OUTCOME_PRIORITY = {
 
 ---
 
-## Phase 1 — Core Memory Store
+## Phase 1 — Core Memory Store ✅ DONE
 **Foundation: the data model and CRUD. No RAG yet.**
 
-**Done signal:**
+**Done signal:** ✅ Verified 2026-06-15 — `uv run pytest tests/test_memory_store.py` → 16/16 PASS
+
 ```
 $ curl http://localhost:8080/memories/mem_001
 → [MOCK] {
@@ -156,8 +157,8 @@ $ curl http://localhost:8080/memories/mem_001
   "tag_tree": {"tool": "auth", "outcome": "failed", "error": "token_expired"},
   "source_file": "src/auth/login.py",
   "page_order": 3,
-  "session_id": "/Users/abhinavnehra/chat/sessions/2024-03-15-auth-flow.md",
-  "project_root": "/Users/abhinavnehra/git/myproject",
+  "session_id": "/Users/abhinav/chat/sessions/2024-03-15-auth-flow.md",
+  "project_root": "/Users/abhinav/git/myproject",
   "linked_chunks": ["mem_007", "mem_012"],
   "outcome_tag": "failed",
   "created_at": "2024-03-15T10:00:00Z",
@@ -167,11 +168,11 @@ $ curl http://localhost:8080/memories/mem_001
 ```
 
 **Phase 1 acceptance criteria:**
-- [ ] MemoryChunk model defined in `src/memory_store/models.py`
-- [ ] ChunkRelationship model defined
-- [ ] CRUD API: `POST /memories`, `GET /memories/{id}`, `PATCH /memories/{id}/tags`, `GET /memories?tag=X&session=Y`
-- [ ] Mock prints correct JSON structure; real Neo4j path documented per endpoint
-- [ ] Tests: create a chunk, retrieve it, update its tags, list by filter
+- [x] MemoryChunk model defined in `src/models.py`
+- [x] ChunkRelationship model defined
+- [x] CRUD API: `POST /memories`, `GET /memories/{id}`, `PATCH /memories/{id}/tags`, `GET /memories?tag=X&session=Y`
+- [x] Mock prints correct JSON structure; real Neo4j path documented per endpoint
+- [x] Tests: 16 tests, all passing (see TEST_DOCUMENTATION.md)
 
 ---
 
