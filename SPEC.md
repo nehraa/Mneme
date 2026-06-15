@@ -230,10 +230,10 @@ $ curl http://localhost:8080/graph/related/mem_001
 ```
 
 **Phase 3 acceptance criteria:**
-- [ ] Graph edge schema: (source, target, relationship_type, reason)
-- [ ] Graph query API: `GET /graph/related/{chunk_id}`, `GET /graph/chains/{chunk_id}?depth=3`
-- [ ] Mock prints correct structure; real Neo4j path documented
-- [ ] Tests: create edges, query related chunks, multi-hop traversal
+- [x] Graph edge schema: (source, target, relationship_type, reason)
+- [x] Graph query API: `GET /graph/related/{chunk_id}`, `GET /graph/chains/{chunk_id}?depth=3`
+- [x] MockGraphIndex returns correct structure; real Neo4j path documented per method
+- [x] Tests: 17 tests covering mock graph + both endpoints (see tests/test_graph.py)
 
 ---
 
