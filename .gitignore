@@ -1,0 +1,27 @@
+# Environment — NEVER commit actual keys
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local Neo4j / Qdrant data (if stored locally)
+data/
