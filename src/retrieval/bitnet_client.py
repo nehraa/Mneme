@@ -1,0 +1,362 @@
+"""
+[REAL] BitNet Client — local Falcon3-1B-Instruct inference via OpenAI-compatible HTTP.
+
+Real path: IntentDetector._detect_real() → BitNetClient.detect_intent()
+
+Talks to a `llama-server` (built by BitNet) over HTTP. The server exposes an
+OpenAI-compatible API at /v1/chat/completions, so the same httpx pattern used
+for every other LLM provider in this project works here unchanged.
+
+SETUP (one-time):
+    ./scripts/setup-bitnet.sh              # clone + build + download model
+    ./scripts/start-llm-server.sh          # start llama-server on BITNET_PORT
+
+USAGE:
+    client = BitNetClient()
+    if client.health_check():
+        result = client.detect_intent("continue the auth flow")
+        # result.intent → "continue_previous_work"
+        # result.detected_tags → ["tool=auth", ...]
+    else:
+        result = client.fallback_intent("continue the auth flow")  # keyword fallback
+
+ENV VARS:
+    BITNET_HOST        bind address of llama-server (default: localhost)
+    BITNET_PORT        listen port (default: 8081)
+    BITNET_MODEL       model alias registered with the server (default: falcon3-1b-instruct)
+    BITNET_TIMEOUT     request timeout in seconds (default: 60)
+    BITNET_DISABLED    set to "1" to disable the client entirely (mock mode)
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+
+# ── Paths (kept for backwards compat / debugging) ────────────────────────────
+
+_REPO_ROOT = Path(__file__).parents[2]  # .../Mneme/
+BITNET_DIR = _REPO_ROOT / "BitNet"
+LLAMA_CLI_BIN = BITNET_DIR / "build" / "bin" / "llama-cli"
+MODEL_GGUF = BITNET_DIR / "models" / "Falcon3-1B-Instruct-1.58bit" / "ggml-model-i2_s.gguf"
+TOKENIZER_DIR = BITNET_DIR / "models" / "Falcon3-1B-Instruct-1.58bit"
+
+
+# ── Config from environment ─────────────────────────────────────────────────
+
+def _bool_env(key: str, default: bool = False) -> bool:
+    val = os.environ.get(key, "").strip().lower()
+    if val in ("1", "true", "yes", "on"):
+        return True
+    if val in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+def _int_env(key: str, default: int) -> int:
+    try:
+        return int(os.environ.get(key, str(default)))
+    except ValueError:
+        return default
+
+
+BITNET_HOST = os.environ.get("BITNET_HOST", "localhost")
+BITNET_PORT = _int_env("BITNET_PORT", 8081)
+BITNET_MODEL = os.environ.get("BITNET_MODEL", "falcon3-1b-instruct")
+BITNET_TIMEOUT = _int_env("BITNET_TIMEOUT", 60)
+BITNET_DISABLED = _bool_env("BITNET_DISABLED", False)
+
+
+def _base_url() -> str:
+    """Build the base URL for the OpenAI-compatible API."""
+    return f"http://{BITNET_HOST}:{BITNET_PORT}/v1"
+
+
+# ── Intent detection prompt ─────────────────────────────────────────────────
+
+INTENT_SYSTEM_PROMPT = """You are an intent detection assistant for an agentic memory system.
+
+Given a user prompt, detect:
+1. **intent**: What is the user trying to do? One of:
+   - continue_previous_work  — resume a previous task or flow
+   - retry_previous_attempt  — retry something that failed before
+   - fix_previous_failure    — fix a specific failure
+   - general                — none of the above
+
+2. **detected_tags**: Flat tag list. Use "category=value" format:
+   - outcome=failed | outcome=work_done | outcome=successfully_called
+   - outcome=stopped | outcome=no_tool_called
+   - tool=auth | tool=db | tool=http | tool=file_io | tool=...
+   - error=token_expired | error=timeout | error=auth_rejected | ...
+
+Return ONLY valid JSON:
+{"intent": "<label>", "detected_tags": ["tag1", "tag2"]}"""
+
+
+# ── Result type ──────────────────────────────────────────────────────────────
+
+
+@dataclass
+class IntentResult:
+    """Structured result from BitNet intent detection."""
+
+    intent: str
+    detected_tags: list[str]
+    raw_response: str = ""
+    degraded: bool = False  # True if produced by keyword fallback
+
+    def to_manifest(self) -> dict[str, Any]:
+        """Convert to the manifest format used by RetrievalEngine."""
+        impl_note = (
+            "Real: retrieval/intent_detector.py::IntentDetector._detect_real() — "
+            "BitNet local inference via llama-server OpenAI-compatible API "
+            f"({BITNET_HOST}:{BITNET_PORT}) with {BITNET_MODEL}"
+        )
+        if self.degraded:
+            impl_note += " [DEGRADED: server unreachable, using keyword fallback]"
+        return {
+            "degraded": self.degraded,
+            "intent": self.intent,
+            "detected_tags": self.detected_tags,
+            "raw_response": self.raw_response,
+            "_implementation_note": impl_note,
+        }
+
+
+# ── HTTP client ──────────────────────────────────────────────────────────────
+
+
+def _chat_complete(
+    system: str,
+    user: str,
+    *,
+    model: str = BITNET_MODEL,
+    temperature: float = 0.2,
+    max_tokens: int = 256,
+    timeout: float = float(BITNET_TIMEOUT),
+) -> str:
+    """
+    Call /v1/chat/completions on the local llama-server.
+
+    Returns the assistant's content text. Raises httpx.HTTPError on failure.
+    """
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
+    }
+    url = f"{_base_url()}/chat/completions"
+    with httpx.Client(timeout=timeout) as client:
+        response = client.post(url, json=payload)
+        response.raise_for_status()
+        data = response.json()
+    # OpenAI shape: {"choices": [{"message": {"content": "..."}}]}
+    return data["choices"][0]["message"]["content"]
+
+
+# ── Output parsing ───────────────────────────────────────────────────────────
+
+
+def _parse_response(raw: str) -> IntentResult:
+    """
+    Parse JSON intent from the LLM response.
+
+    Tries full-string parse first, then a regex search for the first {...} block.
+    """
+    text = raw.strip()
+
+    # Strip code fences if the model wrapped its answer
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+
+    def _extract(parsed: dict) -> IntentResult:
+        # Case-insensitive lookup: Falcon3/BitNet sometimes write "detected_Tags"
+        intent = next(
+            (parsed[k] for k in parsed if k.lower() == "intent"),
+            "general",
+        )
+        tags = next(
+            (parsed[k] for k in parsed if k.lower() == "detected_tags"),
+            [],
+        )
+        return IntentResult(intent=intent, detected_tags=tags, raw_response=raw)
+
+    try:
+        parsed = json.loads(text)
+        return _extract(parsed)
+    except json.JSONDecodeError:
+        pass
+
+    match = re.search(r"(\{[\s\S]+\})", text)
+    if match:
+        try:
+            parsed = json.loads(match.group(1))
+            return _extract(parsed)
+        except json.JSONDecodeError:
+            pass
+
+    return IntentResult(intent="general", detected_tags=[], raw_response=raw)
+
+
+# ── Keyword fallback ─────────────────────────────────────────────────────────
+
+_FALLBACK_CONTINUE_RE = re.compile(
+    r"\b(continue|resume|pick\s*up|where\s+we\s+left\s+off|previous)\b", re.IGNORECASE
+)
+_FALLBACK_RETRY_RE = re.compile(
+    r"\b(retry|try\s+again|redo|re-?run|again)\b", re.IGNORECASE
+)
+_FALLBACK_FIX_RE = re.compile(
+    r"\b(fix|debug|broken|error\s+in|failure\s+in)\b", re.IGNORECASE
+)
+
+
+def _keyword_fallback(prompt_context: str) -> IntentResult:
+    """Cheap regex-based intent guess used when the server is down."""
+    tags: list[str] = []
+    if _FALLBACK_FIX_RE.search(prompt_context):
+        intent = "fix_previous_failure"
+        tags.append("outcome=failed")
+    elif _FALLBACK_RETRY_RE.search(prompt_context):
+        intent = "retry_previous_attempt"
+        tags.append("outcome=failed")
+    elif _FALLBACK_CONTINUE_RE.search(prompt_context):
+        intent = "continue_previous_work"
+    else:
+        intent = "general"
+    return IntentResult(
+        intent=intent,
+        detected_tags=tags,
+        raw_response="<keyword fallback — server unreachable>",
+        degraded=True,
+    )
+
+
+# ── Public API ───────────────────────────────────────────────────────────────
+
+
+def detect_intent(prompt_context: str) -> IntentResult:
+    """
+    Detect intent and tags from a prompt using BitNet via OpenAI-compatible API.
+
+    Falls back to a keyword-based heuristic if the server is unreachable.
+    The returned IntentResult.degraded flag tells the caller whether the
+    response came from the LLM (False) or the fallback (True).
+    """
+    if BITNET_DISABLED:
+        return _keyword_fallback(prompt_context)
+
+    client = BitNetClient()
+    return client.detect_intent(prompt_context)
+
+
+class BitNetClient:
+    """
+    [REAL] BitNet client for local Falcon3-1B-Instruct intent detection.
+
+    Talks to a llama-server (BitNet build) over an OpenAI-compatible HTTP API.
+    All connection details come from environment variables:
+
+        BITNET_HOST   (default: localhost)
+        BITNET_PORT   (default: 8081)
+        BITNET_MODEL  (default: falcon3-1b-instruct)
+
+    Setup:
+        ./scripts/setup-bitnet.sh          # install + download model
+        ./scripts/start-llm-server.sh      # start llama-server
+
+    Usage:
+        client = BitNetClient()
+        if client.health_check():
+            result = client.detect_intent("continue the auth flow")
+        else:
+            result = client.fallback_intent("continue the auth flow")
+    """
+
+    def __init__(
+        self,
+        host: str | None = None,
+        port: int | None = None,
+        model: str | None = None,
+        timeout: float | None = None,
+    ) -> None:
+        """
+        Initialize BitNetClient. All args default to environment variables.
+        """
+        self.host = host if host is not None else BITNET_HOST
+        self.port = port if port is not None else BITNET_PORT
+        self.model = model if model is not None else BITNET_MODEL
+        self.timeout = timeout if timeout is not None else float(BITNET_TIMEOUT)
+        self._base_url = f"http://{self.host}:{self.port}/v1"
+        self._health_url = f"http://{self.host}:{self.port}/health"
+
+    def health_check(self) -> bool:
+        """
+        Check whether the llama-server is reachable and healthy.
+
+        Returns True only if /health returns 200. Does not raise.
+        """
+        try:
+            with httpx.Client(timeout=min(self.timeout, 5.0)) as client:
+                response = client.get(self._health_url)
+                return response.status_code == 200
+        except (httpx.HTTPError, httpx.RequestError) as e:
+            print(
+                f"[BITNET] Health check failed ({self.host}:{self.port}): {e}\n"
+                f"  Start the server with: ./scripts/start-llm-server.sh",
+                file=sys.stderr,
+            )
+            return False
+
+    def detect_intent(self, prompt_context: str) -> IntentResult:
+        """
+        Detect intent and tags from a prompt.
+
+        Calls the LLM server. If the call fails (connection refused, timeout,
+        malformed response), falls back to keyword heuristics and marks the
+        result as `degraded=True`.
+        """
+        if BITNET_DISABLED:
+            return _keyword_fallback(prompt_context)
+
+        try:
+            content = _chat_complete(
+                system=INTENT_SYSTEM_PROMPT,
+                user=prompt_context,
+                model=self.model,
+                timeout=self.timeout,
+            )
+            result = _parse_response(content)
+            result.raw_response = content
+            return result
+        except (httpx.HTTPError, httpx.RequestError) as e:
+            print(
+                f"[BITNET] LLM call failed: {e}\n"
+                f"  Falling back to keyword heuristics.",
+                file=sys.stderr,
+            )
+            return _keyword_fallback(prompt_context)
+        except (KeyError, IndexError, json.JSONDecodeError) as e:
+            print(
+                f"[BITNET] Malformed LLM response: {e}\n"
+                f"  Falling back to keyword heuristics.",
+                file=sys.stderr,
+            )
+            return _keyword_fallback(prompt_context)
+
+    def fallback_intent(self, prompt_context: str) -> IntentResult:
+        """Force the keyword-based fallback (useful for tests / degraded mode)."""
+        return _keyword_fallback(prompt_context)
