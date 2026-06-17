@@ -1,7 +1,5 @@
 """
-[MOCK] Config — loaded from .env or environment variables.
-Real implementation: values come from env vars; mock uses hardcoded defaults.
-Real path: this file stays, values are loaded from os.environ / python-dotenv.
+Config — loaded from .env or environment variables.
 """
 from __future__ import annotations
 
@@ -30,10 +28,10 @@ class LLMConfig:
     )
 
     # Gemini (for embedding + tag-sort during retrieval)
-    gemini_api_key: str = field(
-        default_factory=lambda: _getenv(
-            "GEMINI_API_KEY", "AIzaSyAQR7zEAhU5Gp_q2JXNkokN0c8AOYlWgQI"
-        )
+    # [SECURITY] No default API key — must be set via env var or .env file.
+    # Hardcoded keys leak via git history.
+    gemini_api_key: str | None = field(
+        default_factory=lambda: _getenv("GEMINI_API_KEY")
     )
     gemini_embedding_model: str = field(
         default_factory=lambda: _getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2")
@@ -45,6 +43,24 @@ class LLMConfig:
     )
     ollama_model: str = field(
         default_factory=lambda: _getenv("OLLAMA_MODEL", "phi-4-mini")
+    )
+
+    # BitNet (local LLM server, OpenAI-compatible HTTP)
+    # Start with: ./scripts/start-llm-server.sh
+    bitnet_host: str = field(
+        default_factory=lambda: _getenv("BITNET_HOST", "localhost")
+    )
+    bitnet_port: int = field(
+        default_factory=lambda: int(_getenv("BITNET_PORT", "8081"))
+    )
+    bitnet_model: str = field(
+        default_factory=lambda: _getenv("BITNET_MODEL", "bitnet-b1.58-2b-4t")
+    )
+    bitnet_timeout: int = field(
+        default_factory=lambda: int(_getenv("BITNET_TIMEOUT", "60"))
+    )
+    bitnet_disabled: bool = field(
+        default_factory=lambda: _getenv("BITNET_DISABLED", "").lower() in ("1", "true", "yes")
     )
 
 
@@ -63,7 +79,9 @@ class Neo4jConfig:
 
     uri: str = field(default_factory=lambda: _getenv("NEO4J_URI", "bolt://localhost:7687"))
     user: str = field(default_factory=lambda: _getenv("NEO4J_USER", "neo4j"))
-    password: str = field(default_factory=lambda: _getenv("NEO4J_PASSWORD", "password"))
+    # [SECURITY] No default password — must be set via env var.
+    # The default "password" was a security risk for production deployments.
+    password: str | None = field(default_factory=lambda: _getenv("NEO4J_PASSWORD"))
 
 
 @dataclass

@@ -69,7 +69,7 @@ def _int_env(key: str, default: int) -> int:
 
 BITNET_HOST = os.environ.get("BITNET_HOST", "localhost")
 BITNET_PORT = _int_env("BITNET_PORT", 8081)
-BITNET_MODEL = os.environ.get("BITNET_MODEL", "falcon3-1b-instruct")
+BITNET_MODEL = os.environ.get("BITNET_MODEL", "bitnet-b1.58-2b-4t")
 BITNET_TIMEOUT = _int_env("BITNET_TIMEOUT", 60)
 BITNET_DISABLED = _bool_env("BITNET_DISABLED", False)
 
