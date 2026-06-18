@@ -9,6 +9,7 @@ import glob
 import hmac
 import logging
 import os
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -366,18 +367,34 @@ _repo: Any = None
 # Initialized on first use to avoid crashing the server when Qdrant is down.
 _qdrant_search: Any = None
 
+# FastAPI runs endpoints in a threadpool, so the lazy-init helpers below can
+# race: two concurrent requests can both observe `_repo is None`, both call
+# `get_repository()`, and the second silently overwrites the first's
+# connection. Per-resource locks + double-checked locking keep init
+# exclusive while leaving the steady-state (already-initialized) fast path
+# lock-free.
+_repo_lock = threading.Lock()
+_qdrant_search_lock = threading.Lock()
+
 
 def repo() -> Any:
     global _repo
-    if _repo is None:
-        _repo = get_repository()
+    if _repo is not None:
+        return _repo
+    with _repo_lock:
+        if _repo is None:
+            _repo = get_repository()
     return _repo
 
 
 def qdrant_search() -> Any:
     """Return the lazily-initialized QdrantSearch instance, or None."""
     global _qdrant_search
-    if _qdrant_search is None:
+    if _qdrant_search is not None:
+        return _qdrant_search
+    with _qdrant_search_lock:
+        if _qdrant_search is not None:
+            return _qdrant_search
         try:
             from src.config import get_config
             cfg = get_config()
