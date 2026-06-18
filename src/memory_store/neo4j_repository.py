@@ -42,6 +42,12 @@ _REL_TYPE_MAP: dict[RelationshipType, str] = {
 # Set of enum values (lowercase strings) accepted by create_edge at the boundary.
 _VALID_REL_TYPE_VALUES: frozenset[str] = frozenset(rt.value for rt in RelationshipType)
 
+# Maximum allowed hop depth for graph traversal queries. `depth` is interpolated
+# into a Cypher range pattern (`*1..{depth}`), so it must be a bounded integer
+# — not a string, not arbitrary — to keep the query parseable and prevent
+# injection of arbitrary Cypher through this slot.
+MAX_DEPTH = 10
+
 _SCHEMA_SETUP_CYPHER = """
 CREATE CONSTRAINT chunk_id IF NOT EXISTS
 FOR (c:Chunk) REQUIRE c.chunk_id IS UNIQUE
@@ -389,6 +395,14 @@ class Neo4jMemoryRepository:
             Each dict has: chunk_id, type (relationship type), reason, chunk
             (the related chunk dict).
         """
+        if not isinstance(depth, int) or isinstance(depth, bool):
+            raise ValueError(
+                f"depth must be an int, got {type(depth).__name__}"
+            )
+        if not 1 <= depth <= MAX_DEPTH:
+            raise ValueError(
+                f"depth must be between 1 and {MAX_DEPTH}, got {depth}"
+            )
         cypher = f"""
         MATCH path = (start:Chunk {{chunk_id: $chunk_id}})
                     -[r:SAME_TOOL_CALL|PREREQUISITE|FOLLOWS|CONTRADICTS|SAME_CONCEPT*1..{depth}]->
