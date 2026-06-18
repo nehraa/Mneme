@@ -44,6 +44,10 @@ class IngestionPipeline:
         # Collect all files
         all_files: list[tuple[str, str]] = []  # (file_path, content)
         for pattern in file_paths:
+            # Auto-expand directory paths to a recursive glob so users can
+            # pass a folder directly and get every file at any depth.
+            if Path(pattern).is_dir():
+                pattern = str(Path(pattern) / "**" / "*")
             for path in glob.glob(pattern, recursive=True):
                 p = Path(path)
                 if p.is_file() and not p.name.startswith("."):
