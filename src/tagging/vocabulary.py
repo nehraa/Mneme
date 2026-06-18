@@ -14,11 +14,14 @@ authentication all get `tool=auth`, not 100 different `tool=*` tags.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -292,7 +295,12 @@ def _load_vocabulary() -> dict[str, TagCategory]:
                 yaml_data = yaml.safe_load(f) or {}
             if isinstance(yaml_data, dict):
                 vocab_data = yaml_data
-        except Exception:
+        except Exception as exc:
+            # YAML file is malformed or unreadable — fall back to defaults
+            logger.warning(
+                "tag_vocabulary_yaml_load_failed (path=%s): %s — using built-in defaults",
+                vocab_path, exc,
+            )
             vocab_data = {}
 
     # Merge with defaults (YAML overrides defaults)

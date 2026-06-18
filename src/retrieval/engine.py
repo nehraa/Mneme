@@ -284,8 +284,11 @@ class RetrievalEngine:
                     accessed_at = datetime.fromisoformat(last_accessed)
                     if accessed_at >= cutoff:
                         recency_boost = RECENCY_BOOST_AMOUNT
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug(
+                        "last_accessed_parse_failed (chunk_id=%s, value=%r): %s",
+                        chunk.get("chunk_id"), last_accessed, exc,
+                    )
 
             score = (
                 (tag_match_score * outcome_weight)

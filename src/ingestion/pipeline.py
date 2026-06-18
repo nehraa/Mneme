@@ -4,11 +4,14 @@ Ingestion Pipeline — orchestrates file reading + LLM chunking + store writes.
 from __future__ import annotations
 
 import glob
+import structlog
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from src.memory_store import MemoryRepository
+
+logger = structlog.get_logger(__name__)
 
 
 class IngestionPipeline:
@@ -47,8 +50,8 @@ class IngestionPipeline:
                     try:
                         content = p.read_text(encoding="utf-8", errors="replace")
                         all_files.append((str(p), content))
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("file_read_failed", file=str(p), error=str(exc))
 
         total_chunks = 0
         total_edges = 0
@@ -67,9 +70,6 @@ class IngestionPipeline:
                 result = client.chunk_content(content, file_path=file_path)
             except Exception as e:
                 # Log and continue — don't fail entire pipeline for one bad file
-                import structlog
-
-                logger = structlog.get_logger()
                 logger.warning("llm_chunking_failed", file=file_path, error=str(e))
                 continue
 

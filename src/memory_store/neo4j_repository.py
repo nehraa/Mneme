@@ -12,6 +12,7 @@ All queries use parameterized Cypher — no string interpolation.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,6 +20,8 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import DriverError, ServiceUnavailable
 
 from src.models import RelationshipType
+
+logger = logging.getLogger(__name__)
 
 # Edge relationship type constants (Cypher relationship type names)
 _REL_TYPE_SAME_TOOL_CALL = "SAME_TOOL_CALL"
@@ -122,8 +125,10 @@ class Neo4jMemoryRepository:
             try:
                 session.run(_SCHEMA_SETUP_CYPHER)
             except Exception as exc:
-                # Constraint may already exist — that's fine
-                pass
+                # Constraint may already exist — that's fine; log for visibility
+                logger.debug(
+                    "schema_setup_skipped (constraint=chunk_id): %s", exc,
+                )
 
     def _run(self, cypher: str, **params: Any) -> list[dict[str, Any]]:
         """Execute a query in a session and return consumed records.
