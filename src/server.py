@@ -5,14 +5,16 @@ All endpoints back onto the real, Neo4j-backed implementations.
 """
 from __future__ import annotations
 
+import atexit
 import glob
 import hmac
 import logging
 import os
 import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, AsyncIterator, Callable, TypeVar
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -253,10 +255,57 @@ class InjectRequest(BaseModel):
 
 # ── App ────────────────────────────────────────────────────────────────────────
 
+
+def _close_clients() -> None:
+    """Close Qdrant and Neo4j client connections if they were initialized.
+
+    Idempotent: safe to call multiple times. Catches and logs errors so that
+    a failure in one client's close() does not prevent the other from
+    closing.
+    """
+    global _qdrant_search, _repo
+
+    qs = _qdrant_search
+    if qs is not None:
+        _qdrant_search = None
+        try:
+            close = getattr(qs, "close", None)
+            if callable(close):
+                close()
+                logger.info("Closed Qdrant client connection")
+        except Exception as exc:
+            logger.warning("Error closing Qdrant client: %s", exc)
+
+    repo_obj = _repo
+    if repo_obj is not None:
+        _repo = None
+        try:
+            close = getattr(repo_obj, "close", None)
+            if callable(close):
+                close()
+                logger.info("Closed Neo4j driver connection")
+        except Exception as exc:
+            logger.warning("Error closing Neo4j driver: %s", exc)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """FastAPI lifespan: graceful cleanup of client connections on shutdown."""
+    yield
+    _close_clients()
+
+
+# Register atexit backup so connections close even on hard exit (Ctrl+C,
+# SIGTERM not handled by uvicorn, etc.). atexit fires at interpreter shutdown
+# regardless of how the process terminates.
+atexit.register(_close_clients)
+
+
 app = FastAPI(
     title="Mneme",
     version="0.1.0",
     description="Agentic hybrid memory system with RAG",
+    lifespan=lifespan,
 )
 
 # CORS middleware — secure-by-default.
