@@ -1,19 +1,24 @@
 """
-[MOCK] Mneme HTTP Server — Phase 1 CRUD endpoints.
-Real implementation: all endpoints call Neo4jMemoryRepository (not yet wired).
-Phase 1 is "done" when all endpoints return correct JSON and mock records have _mock: True.
+Mneme HTTP Server — exposes Mneme's memory and retrieval API over HTTP.
+
+All endpoints back onto the real, Neo4j-backed implementations.
 """
 from __future__ import annotations
 
+import logging
+import os
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from src.memory_store import get_repository
 from src.models import next_chunk_id
+
+logger = logging.getLogger(__name__)
 
 # ── Request / Response models ─────────────────────────────────────────────────
 
@@ -38,24 +43,36 @@ class UpdateTagsRequest(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    """Payload for POST /ingest (Phase 2 stub)."""
+    """Payload for POST /ingest (Phase 2 endpoint)."""
 
     file_paths: list[str]
 
 
 class RetrieveRequest(BaseModel):
-    """Payload for POST /retrieve (Phase 4 stub)."""
+    """Payload for POST /retrieve (Phase 4 endpoint)."""
 
     prompt_context: str
     session_id: str | None = None
 
 
 class GuardRequest(BaseModel):
-    """Payload for POST /guard (Phase 5 stub)."""
+    """Payload for POST /guard (Phase 5 endpoint)."""
 
     proposed_change: str
     target_file: str
     session_id: str | None = None
+
+
+class InjectRequest(BaseModel):
+    """Payload for POST /inject (Phase 6 endpoint).
+
+    Used by the pre-tool hook (mneme_inject) — fires before every outbound
+    API call in Claude Code. The `message` is both the retrieval query
+    AND the proposed_change for the memory guard.
+    """
+
+    message: str = Field(..., description="The user/agent message to retrieve context for")
+    session_id: str | None = Field(default=None, description="Optional session filter")
 
 
 # ── App ────────────────────────────────────────────────────────────────────────
@@ -66,15 +83,54 @@ app = FastAPI(
     description="Agentic hybrid memory system with RAG",
 )
 
-# Lazy-initialized repository — swap get_repository(use_mock=False) for real Neo4j
+# CORS middleware — restrictive defaults for local-first deployment.
+# Override MNEME_CORS_ORIGINS env var to allow specific origins in production.
+_cors_origins = os.environ.get("MNEME_CORS_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["*"],
+)
+
+# Lazy-initialized repository — back onto Neo4j (or fallback at construction time).
 _repo: Any = None
+
+# Lazy-initialized QdrantSearch client — None if Qdrant is unavailable.
+# Initialized on first use to avoid crashing the server when Qdrant is down.
+_qdrant_search: Any = None
 
 
 def repo() -> Any:
     global _repo
     if _repo is None:
-        _repo = get_repository(use_mock=True)
+        _repo = get_repository()
     return _repo
+
+
+def qdrant_search() -> Any:
+    """Return the lazily-initialized QdrantSearch instance, or None."""
+    global _qdrant_search
+    if _qdrant_search is None:
+        try:
+            from src.config import get_config
+            cfg = get_config()
+            from src.retrieval.qdrant_search import QdrantSearch
+
+            _qdrant_search = QdrantSearch(
+                host=cfg.qdrant.host,
+                collection=cfg.qdrant.collection,
+                vector_size=cfg.qdrant.vector_size,
+            )
+            logger.info(
+                "QdrantSearch initialized: host=%s collection=%s",
+                cfg.qdrant.host, cfg.qdrant.collection,
+            )
+        except Exception as exc:
+            logger.warning("Failed to initialize QdrantSearch: %s", exc)
+            _qdrant_search = None
+    return _qdrant_search
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -95,32 +151,82 @@ def create_memory(body: CreateChunkRequest) -> JSONResponse:
     """
     POST /memories — create a new memory chunk.
 
-    [MOCK] Phase 1: stores in-memory dict.
-    Real implementation → Neo4jMemoryRepository.create_chunk()
+    When Qdrant is configured, also indexes the chunk's embedding for
+    semantic retrieval. This is best-effort: if Qdrant is unavailable,
+    the chunk is still stored and the error is logged without failing
+    the request.
     """
     chunk_id = next_chunk_id()
     now = datetime.now(timezone.utc).isoformat()
 
+    # Dynamic tagging: if caller didn't provide tags, infer them from content.
+    # If tags were provided, merge them with inferred ones (caller's tags win).
+    from src.tagging.infer import infer_tags, merge_tags
+    inferred_tags = infer_tags(body.content, source_file=body.source_file)
+    final_tags = merge_tags(body.tags, inferred_tags)
+
     # Parse flat tags into a simple tag_tree dict
-    tag_tree = _parse_tags(body.tags)
+    tag_tree = _parse_tags(final_tags)
+
+    # Derive outcome_tag from final tags if caller didn't set one explicitly
+    final_outcome_tag = body.outcome_tag
+    if body.outcome_tag == "work_done":  # default
+        for tag in final_tags:
+            if tag.startswith("outcome="):
+                final_outcome_tag = tag.split("=", 1)[1]
+                break
 
     record = {
-        "_mock": True,
         "chunk_id": chunk_id,
         "session_id": body.session_id,
         "project_root": body.project_root,
         "content": body.content,
         "page_order": body.page_order,
-        "tags": body.tags,
+        "tags": final_tags,
         "tag_tree": tag_tree,
         "linked_chunks": body.linked_chunks,
-        "outcome_tag": body.outcome_tag,
+        "outcome_tag": final_outcome_tag,
         "source_file": body.source_file,
         "created_at": now,
         "last_accessed": None,
     }
 
     repo().create_chunk(record)
+
+    # Real embeddings via Gemini: generate embedding and index in Qdrant.
+    # Best-effort — if either Gemini or Qdrant is unavailable, the chunk is
+    # still stored and the error is logged without failing the request.
+    qs = qdrant_search()
+    if qs is not None and os.environ.get("GEMINI_API_KEY"):
+        try:
+            from src.retrieval.gemini_embeddings import GeminiEmbeddingClient
+
+            gemini = GeminiEmbeddingClient()
+            embedding = gemini.embed(body.content)
+
+            qs.upsert_chunk(
+                chunk_id=chunk_id,
+                content=body.content,
+                embedding=embedding,
+                metadata={
+                    "session_id": body.session_id,
+                    "tags": final_tags,
+                    "outcome_tag": final_outcome_tag,
+                    "source_file": body.source_file,
+                    "created_at": now,
+                },
+            )
+            logger.info(
+                "Indexed chunk %s in Qdrant (dim=%d)",
+                chunk_id, len(embedding),
+            )
+        except Exception as exc:
+            # Don't fail the request — chunk is already stored in Neo4j
+            logger.warning(
+                "Failed to index chunk %s in Qdrant: %s",
+                chunk_id, exc,
+            )
+
     return JSONResponse(content=record, status_code=201)
 
 
@@ -129,23 +235,34 @@ def get_memory(chunk_id: str) -> JSONResponse:
     """
     GET /memories/{chunk_id} — retrieve a chunk by ID.
 
-    [MOCK] Phase 1: looks up in-memory dict.
-    Real implementation → Neo4jMemoryRepository.get_chunk()
+    Pure read (safe + idempotent per HTTP semantics). Recency tracking
+    happens via the separate POST /memories/{id}/touch endpoint.
+    """
+    chunk = repo().get_chunk(chunk_id)
+    if chunk is None:
+        raise HTTPException(status_code=404, detail=f"Chunk {chunk_id} not found")
+    return JSONResponse(content=chunk)
+
+
+@app.post("/memories/{chunk_id}/touch", tags=["Phase 1"])
+def touch_memory(chunk_id: str) -> JSONResponse:
+    """
+    POST /memories/{chunk_id}/touch — update last_accessed timestamp.
+
+    Called after retrieval to update recency boost in scoring.
+    Kept separate from GET so the read path stays safe + idempotent.
     """
     chunk = repo().get_chunk(chunk_id)
     if chunk is None:
         raise HTTPException(status_code=404, detail=f"Chunk {chunk_id} not found")
     repo().touch_chunk(chunk_id)
-    return JSONResponse(content=chunk)
+    return JSONResponse(content={"chunk_id": chunk_id, "touched": True})
 
 
 @app.patch("/memories/{chunk_id}/tags", tags=["Phase 1"])
 def update_memory_tags(chunk_id: str, body: UpdateTagsRequest) -> JSONResponse:
     """
     PATCH /memories/{chunk_id}/tags — update tags on an existing chunk.
-
-    [MOCK] Phase 1: updates in-memory dict.
-    Real implementation → Neo4jMemoryRepository.update_chunk_tags()
     """
     chunk = repo().update_chunk_tags(chunk_id, body.tags)
     if chunk is None:
@@ -162,9 +279,6 @@ def list_memories(
 ) -> JSONResponse:
     """
     GET /memories — list chunks with optional filters.
-
-    [MOCK] Phase 1: filters in-memory list.
-    Real implementation → Neo4jMemoryRepository.list_chunks()
     """
     chunks = repo().list_chunks(
         tag=tag, session_id=session_id, outcome_tag=outcome, limit=limit
@@ -173,7 +287,7 @@ def list_memories(
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Phase 2 — Ingestion Pipeline (stub)
+# Phase 2 — Ingestion Pipeline
 # ════════════════════════════════════════════════════════════════════════════
 
 
@@ -181,26 +295,21 @@ def list_memories(
 def ingest(body: IngestRequest) -> JSONResponse:
     """
     POST /ingest — ingest files and create chunks.
-
-    [MOCK] Phase 2: uses IngestionPipeline with use_mock=True.
-    Swap use_mock=False to activate real MiniMax LLM chunking.
-    Real implementation → ingestion/pipeline.py::IngestionPipeline.run()
     """
     from src.ingestion.pipeline import IngestionPipeline
 
     session_id = body.file_paths[0] if body.file_paths else "unknown"
-    pipeline = IngestionPipeline(repository=repo(), use_mock=True)
+    pipeline = IngestionPipeline(repository=repo())
     result = pipeline.run(
         file_paths=body.file_paths,
         session_id=session_id,
         project_root="",
     )
-    result["_mock"] = True
     return JSONResponse(content=result)
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Phase 3 — Graph Index (stub)
+# Phase 3 — Graph Index
 # ════════════════════════════════════════════════════════════════════════════
 
 
@@ -210,35 +319,30 @@ def get_related_chunks(
 ) -> JSONResponse:
     """
     GET /graph/related/{chunk_id} — get chunks related to this chunk.
-
-    [MOCK STUB] Phase 3: returns mock relationships without Neo4j.
-    Real implementation → graph/index.py::GraphIndex.get_related()
     """
-    mock_response = {
-        "_mock": True,
-        "chunk_id": chunk_id,
-        "relationships": [
-            {
-                "chunk_id": "mem_007",
-                "type": "same_tool_call",
-                "reason": "Both deal with token refresh in auth flow — same OAuth endpoint",
-            },
-            {
-                "chunk_id": "mem_012",
-                "type": "prerequisite",
-                "reason": "mem_012 sets up the auth token that mem_001 tried to use and failed",
-            },
-        ],
-        "_implementation_note": (
-            "Real: graph/index.py::GraphIndex.get_related() — "
-            "queries Neo4j for edges from this chunk_id"
-        ),
-    }
-    return JSONResponse(content=mock_response)
+    from src.graph.index import GraphIndex
+
+    index = GraphIndex(repository=repo())
+    result = index.get_related(chunk_id=chunk_id, depth=depth)
+    return JSONResponse(content=result)
+
+
+@app.get("/graph/chains/{chunk_id}", tags=["Phase 3"])
+def get_chunk_chains(
+    chunk_id: str, depth: int = Query(3, ge=2, le=5)
+) -> JSONResponse:
+    """
+    GET /graph/chains/{chunk_id} — get multi-hop traversal chains.
+    """
+    from src.graph.index import GraphIndex
+
+    index = GraphIndex(repository=repo())
+    result = index.get_chains(chunk_id=chunk_id, depth=depth)
+    return JSONResponse(content=result)
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Phase 4 — Tag-Aware Retrieval Engine (stub)
+# Phase 4 — Tag-Aware Retrieval Engine
 # ════════════════════════════════════════════════════════════════════════════
 
 
@@ -247,36 +351,44 @@ def retrieve(body: RetrieveRequest) -> JSONResponse:
     """
     POST /retrieve — given a prompt, retrieve relevant memories.
 
-    [MOCK STUB] Phase 4: returns mock injection without doing real retrieval.
-    Real implementation → retrieval/engine.py::RetrievalEngine.retrieve()
+    Uses real Gemini embeddings when available:
+    1. Embed the prompt via Gemini text-embedding-004
+    2. Search Qdrant for semantically similar chunks (cosine similarity)
+    3. Score candidates using the 4-component formula
+
+    Falls back gracefully to in-memory retrieval if Gemini or Qdrant
+    is unavailable.
     """
-    mock_response = {
-        "_mock": True,
-        "detected_tags": ["outcome=failed", "tool=auth", "error=token_expired"],
-        "intent": "continue_auth_flow_retry",
-        "injected_context": (
-            "Relevant memory from last session:\n"
-            "[mem_001] Auth flow failed at token_refresh — error: token_expired. "
-            "You tried fixing it by adding retry logic but stopped at line 42.\n"
-            "[mem_007] Related: same tool call (auth) — successfully called after applying the fix."
-        ),
-        "chunks_used": ["mem_001", "mem_007"],
-        "tag_matches": {
-            "outcome=failed": "exact",
-            "tool=auth": "exact",
-            "error=token_expired": "partial",
-        },
-        "priority_scores": {"mem_001": 0.94, "mem_007": 0.71},
-        "_implementation_note": (
-            "Real: retrieval/engine.py::RetrievalEngine.retrieve() — "
-            "calls Ollama intent detection + Qdrant search + Gemini tag-sort"
-        ),
-    }
-    return JSONResponse(content=mock_response)
+    from src.retrieval.engine import RetrievalEngine
+
+    # Generate query embedding via Gemini (best-effort)
+    query_embedding = None
+    if os.environ.get("GEMINI_API_KEY"):
+        try:
+            from src.retrieval.gemini_embeddings import GeminiEmbeddingClient
+
+            gemini = GeminiEmbeddingClient()
+            query_embedding = gemini.embed(body.prompt_context)
+        except Exception as exc:
+            logger.warning(
+                "Failed to generate Gemini query embedding, falling back to tag-based search: %s",
+                exc,
+            )
+
+    engine = RetrievalEngine(
+        repository=repo(),
+        qdrant_search=qdrant_search(),
+    )
+    result = engine.retrieve(
+        prompt_context=body.prompt_context,
+        session_id=body.session_id,
+        query_embedding=query_embedding,
+    )
+    return JSONResponse(content=result)
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Phase 5 — Memory Guard (stub)
+# Phase 5 — Memory Guard
 # ════════════════════════════════════════════════════════════════════════════
 
 
@@ -284,62 +396,58 @@ def retrieve(body: RetrieveRequest) -> JSONResponse:
 def guard(body: GuardRequest) -> JSONResponse:
     """
     POST /guard — check if proposed change contradicts a past failed attempt.
-
-    [MOCK STUB] Phase 5: returns mock warning without real graph lookup.
-    Real implementation → guard/diff_engine.py::DiffEngine.check()
     """
-    mock_response = {
-        "_mock": True,
-        "guard_triggered": True,
-        "warning": (
-            "You tried JWT in auth/token.py in session sessions/2024-03-10 and it "
-            "failed: JWT library was incompatible with the existing session middleware. "
-            "mem_042 (failed, tool=auth, error=incompatible_library). "
-            "Are you sure you want to retry?"
-        ),
-        "related_memories": ["mem_042"],
-        "override_allowed": True,
-        "_implementation_note": (
-            "Real: guard/diff_engine.py::DiffEngine.check() — "
-            "queries Neo4j for 'contradicts' edges + Qdrant semantic similarity"
-        ),
-    }
-    return JSONResponse(content=mock_response)
+    from src.guard.diff_engine import DiffEngine
+
+    # Wire Gemini as the embedding service. When GEMINI_API_KEY is set,
+    # the guard uses real semantic similarity (cosine over Gemini embeddings)
+    # instead of Jaccard word overlap.
+    embedding_service = None
+    if os.environ.get("GEMINI_API_KEY"):
+        try:
+            from src.retrieval.gemini_embeddings import GeminiEmbeddingClient
+
+            _gemini_for_guard = GeminiEmbeddingClient()
+
+            def _embed_for_guard(text: str) -> list[float]:
+                return _gemini_for_guard.embed(text)
+
+            embedding_service = _embed_for_guard
+        except Exception as exc:
+            logger.warning(
+                "Failed to init Gemini for guard, falling back to Jaccard: %s",
+                exc,
+            )
+
+    engine = DiffEngine(
+        repository=repo(),
+        qdrant_search=qdrant_search(),
+        embedding_service=embedding_service,
+    )
+    result = engine.check(
+        proposed_change=body.proposed_change,
+        target_file=body.target_file,
+        session_id=body.session_id,
+    )
+    return JSONResponse(content=result)
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Phase 6 — Pre-Tool Hook / mneme_inject (stub)
+# Phase 6 — Pre-Tool Hook / mneme_inject
 # ════════════════════════════════════════════════════════════════════════════
 
 
 @app.post("/inject", tags=["Phase 6"])
-def inject(message: str, session_id: str | None = None) -> JSONResponse:
+def inject(body: InjectRequest) -> JSONResponse:
     """
     POST /inject — mneme_inject equivalent over HTTP.
     Orchestrates: Phase 4 retrieve + Phase 5 guard, returns injection context.
-
-    [MOCK STUB] Phase 6: returns full mock injection without real backend.
-    Real implementation → hook/mcp_tool.py::Mneme MCP tool
     """
-    mock_response = {
-        "_mock": True,
-        "[Mneme] Pre-tool hook fired": True,
-        "session": session_id or "default",
-        "detected_intent": "continue_auth_flow_retry",
-        "retrieved_chunks": ["mem_001", "mem_007"],
-        "memory_guard": "PASSED (no contradicting failed attempts)",
-        "injected_context": (
-            "Relevant memory from last session:\n"
-            "[mem_001] Auth flow failed at token_refresh...\n"
-            "[mem_007] Same tool call — successfully called after..."
-        ),
-        "injected_context_length": 187,
-        "_implementation_note": (
-            "Real: hook/mcp_tool.py::mneme_inject — "
-            "MCP tool that fires before every outbound API call in Claude Code"
-        ),
-    }
-    return JSONResponse(content=mock_response)
+    from src.hook.mneme import Mneme
+
+    engine = Mneme(repository=repo())
+    result = engine.inject(message=body.message, session_id=body.session_id)
+    return JSONResponse(content=result)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

@@ -1,22 +1,39 @@
-"""Tests for Phase 1: Memory Store CRUD + API endpoints."""
+"""
+Tests for Phase 1: Memory Store CRUD + API endpoints.
+
+The server backs onto the real in-memory repository (overridden via the
+`server.get_repository` factory) so the request/response cycle is exercised
+end-to-end without Neo4j.
+"""
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
+from src import server
+from src.memory_store.repository import InMemoryMemoryRepository
 from src.server import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client(monkeypatch) -> TestClient:
+    """FastAPI test client with a fresh in-memory repository per test."""
+    server._repo = None
+    monkeypatch.setattr(
+        server, "get_repository", lambda: InMemoryMemoryRepository()
+    )
+    return TestClient(app)
 
 
 class TestHealth:
-    def test_health(self):
+    def test_health(self, client: TestClient):
         resp = client.get("/health")
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
 
 class TestCreateMemory:
-    def test_create_chunk_returns_mock_with_correct_schema(self):
+    def test_create_chunk_returns_correct_schema(self, client: TestClient):
         payload = {
             "content": "Auth flow failed at token_refresh — error: token_expired at src/auth/login.py:42",
             "session_id": "/Users/abhinav/chat/sessions/2024-03-15-auth-flow.md",
@@ -32,10 +49,14 @@ class TestCreateMemory:
         data = resp.json()
 
         # Schema checks
-        assert data["_mock"] is True
         assert data["chunk_id"].startswith("mem_")
         assert data["content"] == payload["content"]
-        assert data["tags"] == payload["tags"]
+        # Tags: caller's tags are preserved + dynamic ones appended (e.g. file=login, language=py)
+        for required_tag in payload["tags"]:
+            assert required_tag in data["tags"], f"missing required tag: {required_tag}"
+        # Dynamic tags should also be present (inferred from content + source_file)
+        assert "file=login" in data["tags"]  # inferred from source_file
+        assert "language=py" in data["tags"]   # inferred from .py extension
         assert data["outcome_tag"] == "failed"
         assert data["source_file"] == "src/auth/login.py"
         assert data["page_order"] == 3
@@ -45,7 +66,7 @@ class TestCreateMemory:
         assert data["created_at"] is not None
         assert data["last_accessed"] is None
 
-    def test_create_chunk_all_outcome_tags(self):
+    def test_create_chunk_all_outcome_tags(self, client: TestClient):
         for outcome in ["work_done", "no_tool_called", "successfully_called", "failed", "stopped"]:
             payload = {
                 "content": f"Test content for {outcome}",
@@ -59,12 +80,11 @@ class TestCreateMemory:
 
 
 class TestGetMemory:
-    def test_get_chunk_not_found(self):
+    def test_get_chunk_not_found(self, client: TestClient):
         resp = client.get("/memories/mem_99999")
         assert resp.status_code == 404
 
-    def test_get_chunk_updates_last_accessed(self):
-        # Create
+    def test_get_chunk_updates_last_accessed(self, client: TestClient):
         create_resp = client.post(
             "/memories",
             json={
@@ -75,16 +95,20 @@ class TestGetMemory:
         )
         chunk_id = create_resp.json()["chunk_id"]
 
-        # Get
+        # GET is pure read — last_accessed should NOT be set yet
         get_resp = client.get(f"/memories/{chunk_id}")
         assert get_resp.status_code == 200
-        # last_accessed should now be set
-        assert get_resp.json()["last_accessed"] is not None
+        assert get_resp.json()["last_accessed"] is None
+
+        # Explicitly touch the chunk — last_accessed should now be set
+        touch_resp = client.post(f"/memories/{chunk_id}/touch")
+        assert touch_resp.status_code == 200
+        get_after = client.get(f"/memories/{chunk_id}")
+        assert get_after.json()["last_accessed"] is not None
 
 
 class TestUpdateTags:
-    def test_update_tags_success(self):
-        # Create
+    def test_update_tags_success(self, client: TestClient):
         create_resp = client.post(
             "/memories",
             json={
@@ -95,7 +119,6 @@ class TestUpdateTags:
         )
         chunk_id = create_resp.json()["chunk_id"]
 
-        # Update
         update_resp = client.patch(
             f"/memories/{chunk_id}/tags",
             json={"tags": ["tool=auth", "outcome=failed", "error=new_error"]},
@@ -107,7 +130,7 @@ class TestUpdateTags:
             "error=new_error",
         ]
 
-    def test_update_tags_not_found(self):
+    def test_update_tags_not_found(self, client: TestClient):
         resp = client.patch(
             "/memories/mem_99999/tags",
             json={"tags": ["tool=auth"]},
@@ -116,15 +139,14 @@ class TestUpdateTags:
 
 
 class TestListMemories:
-    def test_list_all(self):
+    def test_list_all(self, client: TestClient):
         resp = client.get("/memories")
         assert resp.status_code == 200
         data = resp.json()
         assert "chunks" in data
         assert "count" in data
 
-    def test_list_filter_by_tag(self):
-        # Create chunk with known tag
+    def test_list_filter_by_tag(self, client: TestClient):
         client.post(
             "/memories",
             json={
@@ -139,94 +161,14 @@ class TestListMemories:
         chunks = resp.json()["chunks"]
         assert all("tool=db" in c["tags"] for c in chunks)
 
-    def test_list_filter_by_outcome(self):
+    def test_list_filter_by_outcome(self, client: TestClient):
         resp = client.get("/memories?outcome=failed")
         assert resp.status_code == 200
         chunks = resp.json()["chunks"]
         assert all(c["outcome_tag"] == "failed" for c in chunks)
 
-    def test_list_filter_by_session(self):
+    def test_list_filter_by_session(self, client: TestClient):
         resp = client.get("/memories?session_id=/test/session.md")
         assert resp.status_code == 200
         chunks = resp.json()["chunks"]
         assert all(c["session_id"] == "/test/session.md" for c in chunks)
-
-
-class TestIngestStub:
-    def test_ingest_returns_mock_manifest(self):
-        resp = client.post(
-            "/ingest",
-            json={"file_paths": ["src/auth/*.py", "tests/auth/*.py"]},
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["_mock"] is True
-        assert data["chunks_created"] == 47
-        assert data["edges_created"] == 12
-        assert "tag_tree_summary" in data
-        assert "_implementation_note" in data
-
-
-class TestGraphStub:
-    def test_get_related_returns_mock(self):
-        resp = client.get("/graph/related/mem_001")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["_mock"] is True
-        assert "relationships" in data
-        assert len(data["relationships"]) == 2
-        assert data["relationships"][0]["type"] == "same_tool_call"
-        assert "_implementation_note" in data
-
-
-class TestRetrieveStub:
-    def test_retrieve_returns_mock_injection(self):
-        resp = client.post(
-            "/retrieve",
-            json={
-                "prompt_context": "请继续修复auth flow，上次你停在token refresh这里",
-                "session_id": "sessions/2024-03-15-auth-flow.md",
-            },
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["_mock"] is True
-        assert data["intent"] == "continue_auth_flow_retry"
-        assert "chunks_used" in data
-        assert "priority_scores" in data
-        assert data["priority_scores"]["mem_001"] > data["priority_scores"]["mem_007"]
-
-
-class TestGuardStub:
-    def test_guard_returns_mock_warning(self):
-        resp = client.post(
-            "/guard",
-            json={
-                "proposed_change": "rewrite auth/token.py to use JWT instead of session cookies",
-                "target_file": "auth/token.py",
-                "session_id": "sessions/2024-03-15-auth-flow.md",
-            },
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["_mock"] is True
-        assert data["guard_triggered"] is True
-        assert data["override_allowed"] is True
-        assert "mem_042" in data["warning"]
-
-
-class TestInjectStub:
-    def test_inject_returns_full_mock(self):
-        resp = client.post(
-            "/inject",
-            params={
-                "message": "请继续修复auth flow",
-                "session_id": "sessions/2024-03-15-auth-flow.md",
-            },
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["_mock"] is True
-        assert "[Mneme] Pre-tool hook fired" in data
-        assert data["memory_guard"] == "PASSED (no contradicting failed attempts)"
-        assert len(data["retrieved_chunks"]) == 2

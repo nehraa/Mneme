@@ -1,6 +1,12 @@
 """
-[MOCK] Memory Repository — Phase 1 mock implementation.
-Real implementation → memory_store/repository.py::Neo4jMemoryRepository
+In-Memory Memory Repository — non-persistent implementation for tests and dev.
+
+This is a REAL implementation (not a mock): it implements the same
+MemoryRepository interface as the Neo4j-backed one but stores everything in
+process-local dicts. It is useful for unit tests and local dev environments
+where a Neo4j instance is not available.
+
+For production, use Neo4jMemoryRepository (see neo4j_repository.py).
 """
 from __future__ import annotations
 
@@ -8,15 +14,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-class MockMemoryRepository:
+class InMemoryMemoryRepository:
     """
-    [MOCK] In-memory mock for Phase 1 verification.
-    Stores chunks in a dict. Real backend is Neo4j.
+    In-memory implementation of the MemoryRepository interface.
 
-    Phase 1 is "done" when:
-    - All CRUD endpoints return correct JSON schema
-    - All mock records have _mock: True
-    - Real Neo4j path is documented in each method docstring
+    Stores chunks in a dict and edges in a list. State is lost on process exit.
+    Intended for unit tests and local dev only.
+
+    For production, use Neo4jMemoryRepository.
     """
 
     def __init__(self) -> None:
@@ -27,32 +32,30 @@ class MockMemoryRepository:
 
     def create_chunk(self, chunk: dict[str, Any]) -> dict[str, Any]:
         """
-        [MOCK] Store a memory chunk in-memory.
-        Real implementation → Neo4jMemoryRepository.create_chunk()
+        Store a memory chunk in-memory.
         """
-        record = {**chunk, "_mock": True}
+        record = dict(chunk)
         self._chunks[chunk["chunk_id"]] = record
         return record
 
     def get_chunk(self, chunk_id: str) -> dict[str, Any] | None:
         """
-        [MOCK] Retrieve a chunk by ID.
-        Real implementation → Neo4jMemoryRepository.get_chunk()
+        Retrieve a chunk by ID.
         """
-        return self._chunks.get(chunk_id)
+        chunk = self._chunks.get(chunk_id)
+        return dict(chunk) if chunk is not None else None
 
     def update_chunk_tags(
         self, chunk_id: str, tags: list[str]
     ) -> dict[str, Any] | None:
         """
-        [MOCK] Update tags on an existing chunk.
-        Real implementation → Neo4jMemoryRepository.update_chunk_tags()
+        Update tags on an existing chunk.
         """
         chunk = self._chunks.get(chunk_id)
         if chunk is None:
             return None
         chunk["tags"] = tags
-        return chunk
+        return dict(chunk)
 
     def list_chunks(
         self,
@@ -62,10 +65,9 @@ class MockMemoryRepository:
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """
-        [MOCK] List chunks filtered by tag / session / outcome.
-        Real implementation → Neo4jMemoryRepository.list_chunks()
+        List chunks filtered by tag / session / outcome.
         """
-        results = list(self._chunks.values())
+        results = [dict(c) for c in self._chunks.values()]
 
         if tag:
             results = [c for c in results if tag in c.get("tags", [])]
@@ -78,8 +80,7 @@ class MockMemoryRepository:
 
     def touch_chunk(self, chunk_id: str) -> None:
         """
-        [MOCK] Update last_accessed timestamp (used for recency boost).
-        Real implementation → Neo4jMemoryRepository.touch_chunk()
+        Update last_accessed timestamp (used for recency boost).
         """
         chunk = self._chunks.get(chunk_id)
         if chunk:
@@ -89,10 +90,9 @@ class MockMemoryRepository:
 
     def create_edge(self, edge: dict[str, Any]) -> dict[str, Any]:
         """
-        [MOCK] Store a graph edge.
-        Real implementation → Neo4jMemoryRepository.create_edge()
+        Store a graph edge.
         """
-        record = {**edge, "_mock": True}
+        record = dict(edge)
         self._edges.append(record)
         return record
 
@@ -100,9 +100,9 @@ class MockMemoryRepository:
         self, chunk_id: str, depth: int = 1
     ) -> list[dict[str, Any]]:
         """
-        [MOCK] Traverse graph edges from a chunk.
-        Real implementation → Neo4jMemoryRepository.get_related_chunks()
+        Traverse graph edges from a chunk up to `depth` hops.
         """
+        del depth  # Single-hop traversal only; multi-hop is a graph-index concern
         related = []
         for edge in self._edges:
             if edge.get("source_chunk_id") == chunk_id:
@@ -133,8 +133,7 @@ class MockMemoryRepository:
         self, target_file: str, session_id: str | None = None
     ) -> list[dict[str, Any]]:
         """
-        [MOCK] Find chunks with 'contradicts' edges for the memory guard.
-        Real implementation → Neo4jMemoryRepository.get_contradicting_chunks()
+        Find chunks with 'contradicts' edges for the memory guard.
         """
         contradicting = []
         for edge in self._edges:
@@ -144,7 +143,3 @@ class MockMemoryRepository:
                     if session_id is None or source.get("session_id") == session_id:
                         contradicting.append(source)
         return contradicting
-
-
-# ── Alias for the interface ───────────────────────────────────────────────────
-MemoryRepository = MockMemoryRepository

@@ -1,6 +1,5 @@
 """
-[MOCK] Ingestion Pipeline — orchestrates file reading + LLM chunking + store writes.
-Real implementation: this IS the real pipeline. Mock is in mock_ingestion.py.
+Ingestion Pipeline — orchestrates file reading + LLM chunking + store writes.
 """
 from __future__ import annotations
 
@@ -20,18 +19,13 @@ class IngestionPipeline:
     2. Send each file's content to LLM for chunking
     3. Store resulting chunks in MemoryRepository
     4. Store cross-chunk relationships as graph edges
-
-    [MOCK] Currently uses MiniMaxClient (real API). Pass use_mock=True to use
-    the mock pipeline instead.
     """
 
     def __init__(
         self,
         repository: MemoryRepository | None = None,
-        use_mock: bool = False,
     ) -> None:
         self._repo = repository
-        self._use_mock = use_mock
 
     def run(
         self,
@@ -44,11 +38,6 @@ class IngestionPipeline:
 
         Returns an ingestion manifest dict.
         """
-        from src.ingestion.mock_ingestion import MockIngestionPipeline
-
-        if self._use_mock:
-            return MockIngestionPipeline().run(file_paths, session_id, project_root)
-
         # Collect all files
         all_files: list[tuple[str, str]] = []  # (file_path, content)
         for pattern in file_paths:
@@ -65,9 +54,10 @@ class IngestionPipeline:
         total_edges = 0
         all_chunk_ids: list[str] = []
 
-        from src.ingestion.llm_client import MiniMaxClient
+        if all_files:
+            from src.ingestion.llm_client import MiniMaxClient
 
-        client = MiniMaxClient()
+            client = MiniMaxClient()
 
         for file_path, content in all_files:
             if not content.strip():
