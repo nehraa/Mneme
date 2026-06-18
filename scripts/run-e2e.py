@@ -4,10 +4,13 @@ E2E test — full Mneme pipeline on a demo repository.
 Writes results to /tmp/mneme-e2e-result.txt so we can capture it.
 """
 import sys, glob, os
+from pathlib import Path
 from collections import defaultdict
 sys.path.insert(0, '.')
 from dotenv import load_dotenv
-load_dotenv('/Users/abhinavnehra/git/Mneme/.env')
+# Load .env from the repo root (where this script lives) rather than a
+# hard-coded absolute path so the script works on any checkout.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 os.environ['NEO4J_URI'] = 'bolt://localhost:7687'
 os.environ['QDRANT_HOST'] = 'http://localhost:6333'
 

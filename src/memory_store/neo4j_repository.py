@@ -276,7 +276,7 @@ class Neo4jMemoryRepository:
         params: dict[str, Any] = {"limit": limit}
 
         if tag is not None:
-            conditions.append("'$tag' IN c.tags")
+            conditions.append("$tag IN c.tags")
             params["tag"] = tag
         if session_id is not None:
             conditions.append("c.session_id = $session_id")
