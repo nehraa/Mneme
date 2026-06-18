@@ -1,2 +1,3 @@
-Attempt 10 - Starting verification
+Attempt 49 - Starting verification
+Max retries configured: 3
 Max retries configured: 3

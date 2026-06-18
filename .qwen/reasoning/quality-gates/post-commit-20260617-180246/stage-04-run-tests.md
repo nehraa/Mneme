@@ -1,0 +1,141 @@
+# Stage 4: Run Existing Tests
+
+**Status:** FAIL
+
+```
+============================= test session starts ==============================
+platform darwin -- Python 3.10.12, pytest-9.0.3, pluggy-1.6.0 -- /Users/abhinavnehra/.pyenv/versions/3.10.12/bin/python3.10
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /Users/abhinavnehra/git/Mneme
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.12.0, langsmith-0.6.9, cov-4.1.0, hypothesis-6.151.9, asyncio-1.3.0, typeguard-4.4.4
+asyncio: mode=auto, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 45 items / 8 errors
+
+==================================== ERRORS ====================================
+__________________ ERROR collecting tests/test_diff_engine.py __________________
+ImportError while importing test module '/Users/abhinavnehra/git/Mneme/tests/test_diff_engine.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.10.12/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_diff_engine.py:26: in <module>
+    from src.memory_store.repository import InMemoryMemoryRepository
+src/memory_store/__init__.py:2: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/neo4j_repository.py:18: in <module>
+    from neo4j import GraphDatabase
+E   ModuleNotFoundError: No module named 'neo4j'
+_____________________ ERROR collecting tests/test_graph.py _____________________
+ImportError while importing test module '/Users/abhinavnehra/git/Mneme/tests/test_graph.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.10.12/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_graph.py:15: in <module>
+    from src.memory_store.repository import InMemoryMemoryRepository
+src/memory_store/__init__.py:2: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/neo4j_repository.py:18: in <module>
+    from neo4j import GraphDatabase
+E   ModuleNotFoundError: No module named 'neo4j'
+_____________________ ERROR collecting tests/test_guard.py _____________________
+ImportError while importing test module '/Users/abhinavnehra/git/Mneme/tests/test_guard.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.10.12/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_guard.py:16: in <module>
+    from src.memory_store.repository import InMemoryMemoryRepository
+src/memory_store/__init__.py:2: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/neo4j_repository.py:18: in <module>
+    from neo4j import GraphDatabase
+E   ModuleNotFoundError: No module named 'neo4j'
+_____________________ ERROR collecting tests/test_hook.py ______________________
+ImportError while importing test module '/Users/abhinavnehra/git/Mneme/tests/test_hook.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.10.12/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_hook.py:18: in <module>
+    from src.memory_store.repository import InMemoryMemoryRepository
+src/memory_store/__init__.py:2: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/neo4j_repository.py:18: in <module>
+    from neo4j import GraphDatabase
+E   ModuleNotFoundError: No module named 'neo4j'
+___________________ ERROR collecting tests/test_ingestion.py ___________________
+ImportError while importing test module '/Users/abhinavnehra/git/Mneme/tests/test_ingestion.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.10.12/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_ingestion.py:16: in <module>
+    from src.memory_store.repository import InMemoryMemoryRepository
+src/memory_store/__init__.py:2: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/neo4j_repository.py:18: in <module>
+    from neo4j import GraphDatabase
+E   ModuleNotFoundError: No module named 'neo4j'
+_________________ ERROR collecting tests/test_memory_store.py __________________
+ImportError while importing test module '/Users/abhinavnehra/git/Mneme/tests/test_memory_store.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.10.12/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_memory_store.py:13: in <module>
+    from src import server
+src/server.py:18: in <module>
+    from src.memory_store import get_repository
+src/memory_store/__init__.py:2: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/neo4j_repository.py:18: in <module>
+    from neo4j import GraphDatabase
+E   ModuleNotFoundError: No module named 'neo4j'
+_______________ ERROR collecting tests/test_neo4j_repository.py ________________
+ImportError while importing test module '/Users/abhinavnehra/git/Mneme/tests/test_neo4j_repository.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.10.12/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_neo4j_repository.py:16: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/__init__.py:2: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/neo4j_repository.py:18: in <module>
+    from neo4j import GraphDatabase
+E   ModuleNotFoundError: No module named 'neo4j'
+___________________ ERROR collecting tests/test_retrieval.py ___________________
+ImportError while importing test module '/Users/abhinavnehra/git/Mneme/tests/test_retrieval.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.10.12/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_retrieval.py:18: in <module>
+    from src.memory_store.repository import InMemoryMemoryRepository
+src/memory_store/__init__.py:2: in <module>
+    from src.memory_store.neo4j_repository import Neo4jMemoryRepository
+src/memory_store/neo4j_repository.py:18: in <module>
+    from neo4j import GraphDatabase
+E   ModuleNotFoundError: No module named 'neo4j'
+=============================== warnings summary ===============================
+tests/test_qdrant_search.py:72
+  /Users/abhinavnehra/git/Mneme/tests/test_qdrant_search.py:72: UserWarning: Qdrant client version 1.16.2 is incompatible with server version 1.12.4. Major versions should match and minor version difference must not exceed 1. Set check_compatibility=False to skip version check.
+    client = QdrantClient(url=QDRANT_HOST, timeout=5.0)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/test_diff_engine.py
+ERROR tests/test_graph.py
+ERROR tests/test_guard.py
+ERROR tests/test_hook.py
+ERROR tests/test_ingestion.py
+ERROR tests/test_memory_store.py
+ERROR tests/test_neo4j_repository.py
+ERROR tests/test_retrieval.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 8 errors during collection !!!!!!!!!!!!!!!!!!!!
+========================= 1 warning, 8 errors in 1.38s =========================
+```

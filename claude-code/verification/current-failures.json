@@ -1,1 +1,1 @@
-{"attempt": 10, "passes": {}, "failed": false, "blocking_pass": null}
+{"attempt": 50, "pass_1": "FAIL", "failed": true, "blocking_pass": 1, "report_file": "/Users/abhinavnehra/git/mneme/claude-code/verification/pass-1-test-sync.md", "instruction": "Create missing test files before proceeding"}

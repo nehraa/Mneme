@@ -1,0 +1,1016 @@
+===== FILE: SPEC.md =====
+# Mneme — Agentic Hybrid Memory System
+
+## Context
+
+**What:** A memory management system with RAG that:
+1. Watches directories, chunks all files (including subfolders) using LLM-assisted boundary detection within a 512K context window
+2. Links chunks both linearly (page index per file) and across files (graph index via LLM-identified relationships)
+3. Tags each chunk with outcome metadata: `work_done / no_tool_called / successfully_called / failed / stopped`
+4. On every AI agent prompt (proactively, before every outbound API call), fires a pre-tool hook that detects intent/tags from the incoming context, runs LLM-assisted retrieval filtered by tag priority, and injects relevant memory chunks into the context
+5. LLM strategy (three-tier): Anthropic-compatible API (user provides key) for chunking + boundary definition; Gemini (user provides key, tried first) for tag sorting during retrieval with Ollama 100-200M local fallback; Ollama 100-200M for intent detection (local, offline)
+6. Has a "diff against memory" guard: warns before writing code that contradicts a past failed attempt
+
+**Why:** The user wants an AI agent that remembers past work — what failed, what succeeded, what was tried — and surfaces it proactively in every new session, with a session boundary managed by `/new` (new conversation file = new session).
+
+**Architecture:** HTTP server (background daemon) + MCP tool that wraps retrieval. FS events for file watching. Neo4j for graph index + cross-chunk relationships. Qdrant for vector search. Three-tier LLM strategy: Anthropic-compatible API for chunking (user provides key); Gemini for tag-sorting during retrieval (user provides key, fallback to Ollama local); Ollama 100-200M local for intent detection. No TTL — memories persist until manually deleted.
+
+---
+
+## Confirmed Design Decisions
+
+| Decision | Choice |
+|---|---|
+| Graph index | Neo4j (local) |
+| Vector search | Qdrant (local) |
+| LLM strategy | Anthropic API (chunking, user key) → Gemini (tag-sort, user key) → Ollama 100-200M local (intent detection) |
+| Process model | HTTP server (background daemon) |
+| Session boundary | File-based — `/new` creates a new conversation file, that's the session ID |
+| File watcher | FS events (filesystem watchers) |
+| Memory TTL | Never expire / manual delete |
+| Source directory | `/git/Mneme` (the repo itself) |
+| Hook mode | Proactive before every outbound API call + manual trigger |
+| Memory guard | Yes — block/warn before writing code that contradicts failed attempt |
+| Namespace | Project + Session (file path of conversation) |
+| First phase | Phase 1: Memory Store |
+
+---
+
+## System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     Mneme HTTP Server (Daemon)                    │
+│  Port: 8080 (localhost) / Unix socket                             │
+│                                                                  │
+│  ┌──────────────┐     ┌────────────────────────────────────┐    │
+│  │ FS Watcher   │────▶│  Ingestion Pipeline (512K ctx LLM) │    │
+│  │ (watch dirs)  │     │  LLM: chunk boundaries + edges     │    │
+│  └──────────────┘     │  + outcome tags per chunk          │    │
+│                       └──────────────┬───────────────────┘    │
+│         session file = new session   │                        │
+│                       ┌──────────────▼───────────────────┐    │
+│                       │  Neo4j (Graph Index)             │    │
+│                       │  - nodes: chunks                 │    │
+│                       │  - edges: cross-chunk relations  │    │
+│                       │  - props: tags, page_order, etc  │    │
+│                       └──────────────┬───────────────────┘    │
+│                       ┌──────────────▼───────────────────┐    │
+│                       │  Qdrant (Vector Index)           │    │
+│                       │  - chunk embeddings              │    │
+│                       │  - metadata: tags, session, etc  │    │
+│                       └──────────────┬───────────────────┘    │
+│                       ┌──────────────▼───────────────────┐    │
+│                       │  Ollama (Intent Detector)         │    │
+│                       │  100-200M model (local)          │    │
+│                       │  maps prompt → detected tags     │    │
+│                       │  ─────────────────────────────  │    │
+│                       │  Anthropic API (Chunking LLM)   │    │
+│                       │  512K ctx, user-provided key    │    │
+│                       │  ─────────────────────────────  │    │
+│                       │  Gemini (Tag-sort, if available)│    │
+│                       │  user-provided key, fallback     │    │
+│                       └──────────────┬───────────────────┘    │
+│                       ┌──────────────▼───────────────────┐    │
+│                       │  Tag-Aware Retrieval Engine      │    │
+│                       │  priority = (tag_match × weight)│    │
+│                       │        + recency_boost          │    │
+│                       │        + outcome_priority        │    │
+│                       └──────────────┬───────────────────┘    │
+└──────────────────────────────────────┼───────────────────────┘
+                                       │
+                              MCP Tool: mneme_inject
+                              ┌────────▼────────┐
+                              │  Pre-Tool Hook  │
+                              │  (Claude Code)  │
+                              │  Proactive:     │
+                              │  fires before   │
+                              │  every API call │
+                              └─────────────────┘
+```
+
+---
+
+## Data Models
+
+### Memory Chunk
+```python
+class MemoryChunk:
+    chunk_id: str              # e.g., "mem_001"
+    session_id: str           # conversation file path
+    project_root: str         # git repo root
+
+    content: str               # the actual chunk text
+    page_order: int            # position within source file (page index)
+
+    tags: list[str]            # e.g., ["tool=auth", "outcome=failed", "error=token_expired"]
+    tag_tree: dict             # parsed tag hierarchy: {"tool": "auth", "outcome": "failed"}
+
+    linked_chunks: list[str]   # graph edges (cross-chunk relationships)
+
+    outcome_tag: str           # "work_done" | "no_tool_called" | "successfully_called" | "failed" | "stopped"
+    source_file: str           # absolute path of source file
+    created_at: datetime
+    last_accessed: datetime
+```
+
+### Graph Edge
+```python
+class ChunkRelationship:
+    source_chunk_id: str
+    target_chunk_id: str
+    relationship_type: str     # "same_tool_call" | "prerequisite" | "follows" | "contradicts" | "same_concept"
+    reason: str                # LLM-provided explanation
+```
+
+### Tag Tree (generated per chunk by LLM)
+```
+Level 1 (category):  tool | memory | skill | context
+Level 2 (entity):    auth | db | http | file_io | ...
+Level 3 (outcome):   failed | successfully_called | no_tool_called | stopped
+Level 4 (error):     token_expired | timeout | auth_rejected | ...
+```
+
+### Outcome Priority (retrieval weighting)
+```python
+OUTCOME_PRIORITY = {
+    "failed": 1.0,              # highest — these are the most actionable
+    "stopped": 0.8,
+    "work_done": 0.6,
+    "successfully_called": 0.4,
+    "no_tool_called": 0.2,
+}
+```
+
+---
+
+## Phase 1 — Core Memory Store ✅ DONE
+**Foundation: the data model and CRUD. No RAG yet.**
+
+**Done signal:** ✅ Verified 2026-06-15 — `uv run pytest tests/test_memory_store.py` → 16/16 PASS
+
+```
+$ curl http://localhost:8080/memories/mem_001
+→ [MOCK] {
+  "chunk_id": "mem_001",
+  "content": "Auth flow failed at token_refresh — error: token_expired at src/auth/login.py:42",
+  "tags": ["tool=auth", "outcome=failed", "error=token_expired"],
+  "tag_tree": {"tool": "auth", "outcome": "failed", "error": "token_expired"},
+  "source_file": "src/auth/login.py",
+  "page_order": 3,
+  "session_id": "/Users/abhinav/chat/sessions/2024-03-15-auth-flow.md",
+  "project_root": "/Users/abhinav/git/myproject",
+  "linked_chunks": ["mem_007", "mem_012"],
+  "outcome_tag": "failed",
+  "created_at": "2024-03-15T10:00:00Z",
+  "last_accessed": null
+}
+→ [MOCK LABEL] swap → real Neo4j call in memory_store/repository.py
+```
+
+**Phase 1 acceptance criteria:**
+- [x] MemoryChunk model defined in `src/models.py`
+- [x] ChunkRelationship model defined
+- [x] CRUD API: `POST /memories`, `GET /memories/{id}`, `PATCH /memories/{id}/tags`, `GET /memories?tag=X&session=Y`
+- [x] Mock prints correct JSON structure; real Neo4j path documented per endpoint
+- [x] Tests: 16 tests, all passing (see TEST_DOCUMENTATION.md)
+
+---
+
+## Phase 2 — LLM-Assisted Ingestion Pipeline
+**Given files → LLM parses 512K context → chunk boundaries + cross-chunk edges + tags.**
+
+**Done signal:**
+```
+$ curl -X POST http://localhost:8080/ingest \
+  -d '{"file_paths": ["src/auth/*.py", "tests/auth/*.py"]}'
+→ [MOCK] {
+  "chunks_created": 47,
+  "edges_created": 12,
+  "session_id": "sessions/2024-03-15-auth-flow.md",
+  "tag_tree_summary": {
+    "tool=auth": {"failed": 5, "successfully_called": 31, "no_tool_called": 11},
+    "tool=db":   {"failed": 2, "successfully_called": 8, "stopped": 1}
+  },
+  "chunks": [
+    { "id": "mem_001", "content": "...", "tags": ["tool=auth","outcome=failed"],
+      "linked_chunks": ["mem_007"], "page_order": 3 },
+    ...
+  ]
+}
+→ [MOCK LABEL] swap → real Anthropic API call in ingestion/llm_chunker.py (Ollama fallback if API fails)
+```
+
+**Phase 2 acceptance criteria:**
+- [x] Ingestion manifest schema defined (see `src/ingestion/llm_client.py::ChunkingResult`)
+- [x] LLM prompt for chunking+linking+tagging written (single 512K-context pass)
+- [x] Chunk boundaries respect semantic units (function, class, test case — not arbitrary token splits)
+- [x] Cross-chunk edges generated with relationship_type + reason
+- [x] Outcome tags assigned per chunk (work_done/successfully_called/failed/stopped/no_tool_called)
+- [x] MockIngestionPipeline returns correct structure; real path documented per method
+- [x] Tests: 12 tests covering mock pipeline + endpoint (see tests/test_ingestion.py)
+
+---
+
+## Phase 3 — Graph Index (Neo4j)
+**Graph of cross-chunk relationships. Queryable: "what's related to this chunk?"**
+
+**Done signal:**
+```
+$ curl http://localhost:8080/graph/related/mem_001
+→ [MOCK] {
+  "chunk_id": "mem_001",
+  "relationships": [
+    { "chunk_id": "mem_007", "type": "same_tool_call",
+      "reason": "Both deal with token refresh in auth flow — same OAuth endpoint" },
+    { "chunk_id": "mem_012", "type": "prerequisite",
+      "reason": "mem_012 sets up the auth token that mem_001 tried to use and failed" }
+  ]
+}
+→ [MOCK LABEL] swap → real Neo4j traversal in graph/index.py
+```
+
+**Phase 3 acceptance criteria:**
+- [x] Graph edge schema: (source, target, relationship_type, reason)
+- [x] Graph query API: `GET /graph/related/{chunk_id}`, `GET /graph/chains/{chunk_id}?depth=3`
+- [x] MockGraphIndex returns correct structure; real Neo4j path documented per method
+- [x] Tests: 17 tests covering mock graph + both endpoints (see tests/test_graph.py)
+
+---
+
+## Phase 4 — Tag-Aware Retrieval Engine
+**Given prompt context + detected intent → retrieve memories filtered by tag priority.**
+
+**Done signal:**
+```
+$ curl -X POST http://localhost:8080/retrieve \
+  -d '{"prompt_context": "请继续修复auth flow，上次你停在token refresh这里",
+       "session_id": "sessions/2024-03-15-auth-flow.md"}'
+→ [MOCK] {
+  "detected_tags": ["outcome=failed", "tool=auth", "error=token_expired"],
+  "intent": "continue_auth_flow_retry",
+  "injected_context": "Relevant memory from last session:\n"
+    "[mem_001] Auth flow failed at token_refresh — error: token_expired. "
+    "You tried fixing it by adding retry logic but stopped at line 42.\n"
+    "[mem_007] Related: same tool call (auth) — successfully called after applying the fix.",
+  "chunks_used": ["mem_001", "mem_007"],
+  "tag_matches": {"outcome=failed": "exact", "tool=auth": "exact", "error=token_expired": "partial"},
+  "priority_scores": {"mem_001": 0.94, "mem_007": 0.71}
+}
+→ [MOCK LABEL] swap → Ollama intent detection + Qdrant search (+ Gemini tag-sort attempt if key provided)
+```
+
+**Phase 4 acceptance criteria:**
+- [x] Intent detection: IntentDetector maps prompt → detected tags + intent label (Ollama path documented)
+- [x] Priority scoring formula: `(tag_match_score × OUTCOME_PRIORITY[outcome_tag]) + recency_boost` implemented
+- [x] Recency boost: memories accessed in last 7 days get +0.1 boost
+- [x] MockRetrievalEngine returns correct structure; real Ollama + Qdrant + Gemini path documented
+- [x] Tests: 18 tests covering intent detection, priority scoring, endpoint (see tests/test_retrieval.py)
+
+---
+
+## Phase 5 — Memory Guard (Diff Against Memory)
+**Before AI writes code that contradicts a past failed attempt → warn.**
+
+**Done signal:**
+```
+$ curl -X POST http://localhost:8080/guard \
+  -d '{"proposed_change": "rewrite auth/token.py to use JWT instead of session cookies",
+       "target_file": "auth/token.py",
+       "session_id": "sessions/2024-03-15-auth-flow.md"}'
+→ [MOCK] {
+  "guard_triggered": true,
+  "warning": "You tried JWT in auth/token.py in session sessions/2024-03-10 and it "
+    "failed: JWT library was incompatible with the existing session middleware. "
+    "mem_042 (failed, tool=auth, error=incompatible_library). "
+    "Are you sure you want to retry?",
+  "related_memories": ["mem_042"],
+  "override_allowed": true
+}
+→ [MOCK LABEL] swap → real Neo4j "contradicts" edge lookup + Qdrant semantic check + Ollama intent detection
+```
+
+**Phase 5 acceptance criteria:**
+- [ ] "contradicts" relationship lookup in graph (past failed attempts at same goal)
+- [ ] Semantic similarity check: proposed change vs past failed chunk content
+- [ ] Warning returned with memory context + `override_allowed: true` (AI can proceed)
+- [ ] Mock fires correctly; real path documented
+
+---
+
+## Phase 6 — Pre-Tool Hook (MCP Interface)
+**The MCP tool that wraps everything. Fires proactively before every outbound API call.**
+
+**Done signal:**
+```
+$ mneme_inject("请继续修复auth flow")
+→ [Mneme] Pre-tool hook fired
+  Session: sessions/2024-03-15-auth-flow.md
+  Detected intent: continue_auth_flow_retry
+  Retrieved 2 chunks (1 failed, 1 success)
+  Memory guard: PASSED (no contradicting failed attempts)
+  Injected context length: 847 chars
+  → [MEM_001] Auth flow failed at token_refresh...
+  → [MEM_007] Same tool call — successfully called after...
+→ [MOCK LABEL] This is where real MCP tool hook fires (Claude Code integration)
+```
+
+**Phase 6 acceptance criteria:**
+- [ ] MCP tool definition: `mneme_inject(message: string, session_id?: string)`
+- [ ] Calls Phase 4 retrieval + Phase 5 guard in sequence
+- [ ] Output clearly labeled `[MOCK]` until real implementation
+- [ ] MCP tool registration for Claude Code (tool hook)
+- [ ] Tests: full injection flow with mock → correct output structure
+
+---
+
+## Critical Files (to be created)
+
+```
+/Users/abhinavnehra/git/Mneme/
+├── SPEC.md                              # This spec
+├── src/
+│   ├── __init__.py
+│   ├── models.py                        # MemoryChunk, ChunkRelationship, TagTree
+│   ├── config.py                        # LLM API keys + provider config
+│   ├── server.py                        # FastAPI HTTP server (Phases 1-6)
+│   ├── memory_store/
+│   │   ├── __init__.py
+│   │   ├── repository.py                # Neo4j CRUD operations
+│   │   └── mock_repository.py          # Phase 1 mock [MOCK]
+│   ├── ingestion/
+│   │   ├── __init__.py
+│   │   ├── pipeline.py                 # Ingestion orchestration
+│   │   ├── llm_chunker.py              # LLM chunking + linking + tagging
+│   │   └── mock_ingestion.py           # Phase 2 mock [MOCK]
+│   ├── graph/
+│   │   ├── __init__.py
+│   │   ├── index.py                    # Neo4j graph operations
+│   │   └── mock_graph.py               # Phase 3 mock [MOCK]
+│   ├── retrieval/
+│   │   ├── __init__.py
+│   │   ├── engine.py                   # Tag-aware retrieval + priority scoring
+│   │   ├── intent_detector.py           # Ollama intent/tag detection
+│   │   └── mock_retrieval.py           # Phase 4 mock [MOCK]
+│   ├── guard/
+│   │   ├── __init__.py
+│   │   ├── diff_engine.py              # "contradicts" lookup + semantic check
+│   │   └── mock_guard.py               # Phase 5 mock [MOCK]
+│   └── hook/
+│       ├── __init__.py
+│       ├── mcp_tool.py                  # MCP tool definition
+│       └── mock_hook.py                 # Phase 6 mock [MOCK]
+├── tests/
+│   ├── test_memory_store.py
+│   ├── test_ingestion.py
+│   ├── test_graph.py
+│   ├── test_retrieval.py
+│   ├── test_guard.py
+│   └── test_hook.py
+└── pyproject.toml
+```
+
+---
+
+## MOCK Implementation Pattern
+
+Every mock follows this pattern:
+```python
+def get_memory(chunk_id: str) -> dict:
+    """
+    [MOCK] Returns a mock memory record.
+    Real implementation → memory_store/repository.py::Neo4jMemoryRepository.get()
+    """
+    return {
+        "_mock": True,
+        "chunk_id": chunk_id,
+        "content": "[MOCK] Auth flow failed — token_expired",
+        "tags": ["tool=auth", "outcome=failed"],
+        # ... full structure matching real return type
+    }
+```
+
+Mock functions are in `mock_*.py` files. Real implementations go in `*.py`. Each mock clearly labels:
+- `_mock: True` field
+- docstring pointing to exact real implementation path
+- `[MOCK]` prefix in any print output
+
+Phase is "done" when: mock fires correctly AND real path is documented in docstring AND tests pass.
+
+---
+
+## Verification Plan
+
+| Phase | Verification |
+|---|---|
+| Phase 1 | `curl http://localhost:8080/memories/mem_001` → mock JSON with correct schema |
+| Phase 2 | `POST /ingest` with a Python file → correct chunk count + edges + tags |
+| Phase 3 | `GET /graph/related/mem_001` → 2 related chunks with correct relationship types |
+| Phase 4 | `POST /retrieve` with auth flow prompt → failed chunk ranked first |
+| Phase 5 | `POST /guard` with contradicting change → warning with related memory ID |
+| Phase 6 | `mneme_inject(...)` → full output with `[Mneme]` prefix and all metadata |
+
+---
+
+## Open Questions (resolved)
+
+| Question | Answer |
+|---|---|
+| Storage backend? | Neo4j (graph) + Qdrant (vector), both local |
+| Source directory? | `/git/Mneme` |
+| First phase? | Phase 1: Memory Store |
+| Hook mode? | Proactive before every API call + manual |
+| Memory guard? | Yes — block/warn before contradicting failed attempts |
+| Namespace? | Project root + session file path |
+| LLM strategy? | Anthropic API (chunking) → Gemini (tag-sort) → Ollama local (intent) |
+| Watcher type? | FS events |
+| Memory TTL? | Never expire / manual delete |
+| Process model? | HTTP server (background daemon) |
+| Session model? | File-based — `/new` in AI chat = new conversation file = new session |
+
+===== FILE: src/retrieval/__init__.py =====
+"""Retrieval module — tag-aware memory retrieval + intent detection."""
+from __future__ import annotations
+
+from src.retrieval.engine import RetrievalEngine
+
+__all__ = ["RetrievalEngine"]
+
+===== FILE: src/retrieval/engine.py =====
+"""
+Retrieval Engine — tag-aware memory retrieval with priority scoring.
+Real implementation: Ollama (intent) + Qdrant (vector search) + Gemini (tag-sort).
+Mock is in mock_retrieval.py.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone, timedelta
+from typing import TYPE_CHECKING, Any
+
+from src.models import OUTCOME_PRIORITY
+
+if TYPE_CHECKING:
+    from src.memory_store import MemoryRepository
+
+
+# Tag match score weights
+TAG_MATCH_EXACT = 1.0
+TAG_MATCH_PARTIAL = 0.5
+RECENCY_BOOST_DAYS = 7
+RECENCY_BOOST_AMOUNT = 0.1
+
+
+class RetrievalEngine:
+    """
+    Tag-aware retrieval with priority scoring.
+
+    Scoring formula:
+        score = (tag_match_score × OUTCOME_PRIORITY[outcome_tag]) + recency_boost
+
+    Where:
+      - tag_match_score: 1.0 (exact), 0.5 (partial/same-category), 0.0 (no match)
+      - OUTCOME_PRIORITY: failed=1.0, stopped=0.8, work_done=0.6,
+        successfully_called=0.4, no_tool_called=0.2
+      - recency_boost: +0.1 if last_accessed within last 7 days
+
+    [MOCK] Currently uses MockRetrievalEngine. Pass use_mock=False to use
+    the real Ollama + Qdrant + Gemini implementation.
+    """
+
+    def __init__(
+        self,
+        repository: MemoryRepository | None = None,
+        use_mock: bool = False,
+    ) -> None:
+        self._repo = repository
+        self._use_mock = use_mock
+
+    def retrieve(
+        self,
+        prompt_context: str,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Retrieve relevant memory chunks for a given prompt.
+
+        Returns a dict with:
+          - detected_tags: list of tags extracted from prompt
+          - intent: intent label
+          - injected_context: formatted string of chunk contents
+          - chunks_used: list of chunk_ids returned
+          - tag_matches: per-tag match quality (exact/partial/none)
+          - priority_scores: per-chunk score breakdown
+        """
+        if self._use_mock:
+            from src.retrieval.mock_retrieval import MockRetrievalEngine
+
+            return MockRetrievalEngine().retrieve(
+                prompt_context=prompt_context,
+                session_id=session_id,
+            )
+
+        # Step 1: Intent detection via Ollama 100-200M
+        intent_result = self._detect_intent(prompt_context)
+        detected_tags = intent_result["detected_tags"]
+        intent = intent_result["intent"]
+
+        # Step 2: Retrieve candidate chunks from MemoryRepository
+        candidates = self._repo.list_chunks(session_id=session_id, limit=50)
+
+        # Step 3: Score each chunk using priority formula
+        scored = self._score_chunks(candidates, detected_tags)
+
+        # Step 4: Sort by score descending and take top chunks
+        top_chunks = sorted(scored, key=lambda x: x["score"], reverse=True)[:5]
+
+        # Step 5: Build injected context string
+        injected_context = self._build_injected_context(top_chunks)
+
+        # Step 6: Build tag matches map
+        tag_matches = self._build_tag_matches(top_chunks, detected_tags)
+
+        return {
+            "detected_tags": detected_tags,
+            "intent": intent,
+            "injected_context": injected_context,
+            "chunks_used": [c["chunk_id"] for c in top_chunks],
+            "tag_matches": tag_matches,
+            "priority_scores": {c["chunk_id"]: round(c["score"], 4) for c in top_chunks},
+        }
+
+    def _detect_intent(self, prompt_context: str) -> dict[str, Any]:
+        """
+        Detect intent and tags from prompt using Ollama 100-200M local model.
+
+        Real implementation:
+            import ollama
+            response = ollama.chat(
+                model="llama3.2:1b",  # or smaller 100-200M model
+                messages=[{"role": "user", "content": prompt_context}],
+            )
+            return json.loads(response["message"]["content"])
+        """
+        from src.retrieval.intent_detector import IntentDetector
+
+        detector = IntentDetector()
+        return detector.detect(prompt_context)
+
+    def _score_chunks(
+        self,
+        chunks: list[dict[str, Any]],
+        detected_tags: list[str],
+    ) -> list[dict[str, Any]]:
+        """Apply priority scoring formula to each chunk."""
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=RECENCY_BOOST_DAYS)
+        scored_chunks = []
+
+        for chunk in chunks:
+            tag_match_score = self._compute_tag_match(chunk.get("tags", []), detected_tags)
+            outcome_tag = chunk.get("outcome_tag", "work_done")
+            outcome_weight = OUTCOME_PRIORITY.get(outcome_tag, 0.2)
+
+            # Recency boost
+            recency_boost = 0.0
+            last_accessed = chunk.get("last_accessed")
+            if last_accessed:
+                try:
+                    accessed_at = datetime.fromisoformat(last_accessed)
+                    if accessed_at >= cutoff:
+                        recency_boost = RECENCY_BOOST_AMOUNT
+                except Exception:
+                    pass
+
+            score = (tag_match_score * outcome_weight) + recency_boost
+            scored_chunks.append({**chunk, "score": score})
+
+        return scored_chunks
+
+    def _compute_tag_match(
+        self,
+        chunk_tags: list[str],
+        detected_tags: list[str],
+    ) -> float:
+        """
+        Compute tag match score between chunk tags and detected tags.
+
+        Returns:
+          - 1.0: exact match on same tag
+          - 0.5: same category, different value (e.g. tool=auth vs tool=db)
+          - 0.0: no match
+        """
+        if not detected_tags:
+            return 0.5  # Neutral when no tags detected
+
+        score = 0.0
+        for detected in detected_tags:
+            if detected in chunk_tags:
+                score += TAG_MATCH_EXACT
+            else:
+                # Check for same-category partial match
+                if "=" in detected:
+                    category = detected.split("=", 1)[0]
+                    for chunk_tag in chunk_tags:
+                        if "=" in chunk_tag:
+                            chunk_category = chunk_tag.split("=", 1)[0]
+                            if chunk_category == category:
+                                score += TAG_MATCH_PARTIAL
+                                break
+
+        return min(score, 1.0)  # Cap at 1.0
+
+    def _build_injected_context(
+        self,
+        top_chunks: list[dict[str, Any]],
+    ) -> str:
+        """Format top-scored chunks into injected context string."""
+        if not top_chunks:
+            return ""
+
+        lines = ["Relevant memory from last session:"]
+        for chunk in top_chunks:
+            chunk_id = chunk.get("chunk_id", "?")
+            content = chunk.get("content", "")
+            outcome = chunk.get("outcome_tag", "work_done")
+            # Truncate long content
+            display_content = content[:120] + "..." if len(content) > 120 else content
+            lines.append(f"[{chunk_id}] {display_content} [{outcome}]")
+
+        return "\n".join(lines)
+
+    def _build_tag_matches(
+        self,
+        top_chunks: list[dict[str, Any]],
+        detected_tags: list[str],
+    ) -> dict[str, str]:
+        """Build per-tag match quality map."""
+        tag_matches: dict[str, str] = {}
+        for detected in detected_tags:
+            found_exact = any(detected in c.get("tags", []) for c in top_chunks)
+            if found_exact:
+                tag_matches[detected] = "exact"
+            else:
+                # Check partial
+                if "=" in detected:
+                    category = detected.split("=", 1)[0]
+                    found_partial = any(
+                        category in t for c in top_chunks for t in c.get("tags", [])
+                    )
+                    tag_matches[detected] = "partial" if found_partial else "none"
+                else:
+                    tag_matches[detected] = "none"
+        return tag_matches
+
+===== FILE: src/retrieval/intent_detector.py =====
+"""
+[MOCK] Intent Detector — maps prompt → detected tags + intent label.
+Phase 4 uses Ollama 100-200M local model for intent detection.
+Real implementation → retrieval/intent_detector.py::IntentDetector
+"""
+from __future__ import annotations
+
+from typing import Any
+
+
+# Tag prefixes that map to specific outcome/tool tags
+TAG_PREFIX_MAP = {
+    "failed": "outcome=failed",
+    "error": "error=",
+    "success": "outcome=successfully_called",
+    "work_done": "outcome=work_done",
+    "stopped": "outcome=stopped",
+    "no_tool": "outcome=no_tool_called",
+    "auth": "tool=auth",
+    "db": "tool=db",
+    "http": "tool=http",
+    "file": "tool=file_io",
+}
+
+
+INTENT_KEYWORDS = {
+    "continue": "continue_previous_work",
+    "retry": "retry_previous_attempt",
+    "fix": "fix_previous_failure",
+    "again": "retry_previous_attempt",
+    "上次": "continue_previous_work",
+    "继续": "continue_previous_work",
+    "修复": "fix_previous_failure",
+    "重试": "retry_previous_attempt",
+}
+
+
+class IntentDetector:
+    """
+    [MOCK] Detects intent and tags from a user prompt.
+
+    Uses simple keyword matching for Phase 4 mock.
+    Real implementation uses Ollama 100-200M local model:
+        ollama chat model --prompt <prompt> → structured JSON {intent, tags}
+    """
+
+    def detect(self, prompt_context: str) -> dict[str, Any]:
+        """
+        [MOCK] Detect intent and tags from prompt text.
+        Real implementation → Ollama 100-200M local inference.
+        """
+        prompt_lower = prompt_context.lower()
+        detected_tags: list[str] = []
+        intent = "general"
+
+        # Detect intent from keywords
+        for keyword, intent_label in INTENT_KEYWORDS.items():
+            if keyword in prompt_lower:
+                intent = intent_label
+                break
+
+        # Detect tags from prefixes
+        for prefix, tag_template in TAG_PREFIX_MAP.items():
+            if prefix in prompt_lower:
+                if "=" in tag_template:
+                    # Extract the word after the prefix as the tag value
+                    idx = prompt_lower.find(prefix)
+                    rest = prompt_lower[idx + len(prefix) :].strip()
+                    word = rest.split()[0] if rest else prefix
+                    detected_tags.append(f"{tag_template}{word}")
+                else:
+                    detected_tags.append(tag_template)
+
+        # If auth-related keywords found, tag as auth tool
+        if any(k in prompt_lower for k in ["auth", "token", "login", "oauth", "jwt"]):
+            if "tool=auth" not in detected_tags:
+                detected_tags.append("tool=auth")
+
+        # If failure keywords found, tag as failed outcome
+        if any(k in prompt_lower for k in ["failed", "error", "expired", "timeout", "reject"]):
+            if "outcome=failed" not in detected_tags:
+                detected_tags.append("outcome=failed")
+
+        # Fallback intent detection
+        if intent == "general":
+            if "continue" in prompt_lower or "上次" in prompt_context:
+                intent = "continue_previous_work"
+            elif "retry" in prompt_lower or "重试" in prompt_context:
+                intent = "retry_previous_attempt"
+
+        return {
+            "_mock": True,
+            "intent": intent,
+            "detected_tags": detected_tags,
+            "_implementation_note": (
+                "Real: retrieval/intent_detector.py::IntentDetector — "
+                "Ollama 100-200M local model inference"
+            ),
+        }
+
+===== FILE: src/retrieval/mock_retrieval.py =====
+"""
+[MOCK] Mock Retrieval Engine — returns deterministic mock retrieval results.
+Phase 4 is "done" when this mock fires AND the real Ollama+Qdrant path is documented.
+Real implementation → retrieval/engine.py::RetrievalEngine
+"""
+from __future__ import annotations
+
+from typing import Any
+
+
+class MockRetrievalEngine:
+    """
+    [MOCK] Returns deterministic mock retrieval for Phase 4 verification.
+    Real backend: Ollama (intent) + Qdrant (vector search) + Gemini (tag-sort).
+    """
+
+    def retrieve(
+        self,
+        prompt_context: str,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        [MOCK] Return a deterministic mock retrieval result.
+        Real implementation → retrieval/engine.py::RetrievalEngine.retrieve()
+        """
+        return {
+            "_mock": True,
+            "detected_tags": [
+                "outcome=failed",
+                "tool=auth",
+                "error=token_expired",
+            ],
+            "intent": "continue_auth_flow_retry",
+            "injected_context": (
+                "Relevant memory from last session:\n"
+                "[mem_001] Auth flow failed at token_refresh — "
+                "error: token_expired. You tried fixing it by adding "
+                "retry logic but stopped at line 42.\n"
+                "[mem_007] Related: same tool call (auth) — "
+                "successfully called after applying the fix."
+            ),
+            "chunks_used": ["mem_001", "mem_007"],
+            "tag_matches": {
+                "outcome=failed": "exact",
+                "tool=auth": "exact",
+                "error=token_expired": "partial",
+            },
+            "priority_scores": {"mem_001": 0.94, "mem_007": 0.71},
+            "_implementation_note": (
+                "Real: retrieval/engine.py::RetrievalEngine.retrieve() — "
+                "calls Ollama intent detection + Qdrant search + Gemini tag-sort"
+            ),
+        }
+
+===== FILE: tests/test_retrieval.py =====
+"""
+Tests for the retrieval engine (Phase 4).
+
+Verifies:
+- RetrievalEngine.retrieve() produces correct manifest structure
+- MockRetrievalEngine returns deterministic mock data
+- IntentDetector detects intent and tags from prompts
+- POST /retrieve endpoint returns correct structure
+- Failed chunks rank higher than successful chunks (priority scoring)
+"""
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+from src.retrieval.engine import RetrievalEngine
+from src.retrieval.intent_detector import IntentDetector
+from src.retrieval.mock_retrieval import MockRetrievalEngine
+from src.server import app
+
+
+class TestIntentDetector:
+    """Unit tests for IntentDetector."""
+
+    def test_detect_returns_required_keys(self):
+        """detect() must return _mock, intent, detected_tags."""
+        detector = IntentDetector()
+        result = detector.detect("continue the auth flow from last time")
+
+        assert "_mock" in result
+        assert result["_mock"] is True
+        assert "intent" in result
+        assert "detected_tags" in result
+        assert isinstance(result["detected_tags"], list)
+
+    def test_detect_auth_keyword_tags_as_auth(self):
+        """Prompt with 'auth' keyword must include tool=auth tag."""
+        detector = IntentDetector()
+        result = detector.detect("continue the auth flow")
+        assert "tool=auth" in result["detected_tags"]
+
+    def test_detect_failed_keyword_tags_as_failed(self):
+        """Prompt with 'failed' keyword must include outcome=failed tag."""
+        detector = IntentDetector()
+        result = detector.detect("the auth flow failed with token expired")
+        assert "outcome=failed" in result["detected_tags"]
+
+    def test_detect_retry_keyword_sets_retry_intent(self):
+        """Prompt with 'retry' keyword must set intent to retry_previous_attempt."""
+        detector = IntentDetector()
+        result = detector.detect("retry the auth flow")
+        assert result["intent"] == "retry_previous_attempt"
+
+    def test_detect_continue_keyword_sets_continue_intent(self):
+        """Prompt with 'continue' keyword must set intent to continue_previous_work."""
+        detector = IntentDetector()
+        result = detector.detect("continue the auth flow")
+        assert result["intent"] == "continue_previous_work"
+
+    def test_detect_implementation_note_present(self):
+        """_implementation_note must document the real Ollama path."""
+        detector = IntentDetector()
+        result = detector.detect("continue the auth flow")
+        assert "_implementation_note" in result
+        assert "IntentDetector" in result["_implementation_note"]
+
+
+class TestMockRetrievalEngine:
+    """Unit tests for MockRetrievalEngine."""
+
+    def test_retrieve_returns_required_keys(self):
+        """retrieve() must return all fields the spec defines."""
+        mock = MockRetrievalEngine()
+        result = mock.retrieve(
+            prompt_context="continue the auth flow",
+            session_id="test-session",
+        )
+
+        assert result["_mock"] is True
+        assert "detected_tags" in result
+        assert "intent" in result
+        assert "injected_context" in result
+        assert "chunks_used" in result
+        assert "tag_matches" in result
+        assert "priority_scores" in result
+
+    def test_retrieve_injected_context_is_string(self):
+        """injected_context must be a non-empty string."""
+        mock = MockRetrievalEngine()
+        result = mock.retrieve(prompt_context="continue", session_id=None)
+        assert isinstance(result["injected_context"], str)
+        assert len(result["injected_context"]) > 0
+
+    def test_retrieve_priority_scores_have_failed_chunk_first(self):
+        """priority_scores must have mem_001 (failed) ranked above mem_007."""
+        mock = MockRetrievalEngine()
+        result = mock.retrieve(prompt_context="continue", session_id=None)
+        scores = result["priority_scores"]
+        assert scores["mem_001"] > scores["mem_007"]
+
+    def test_retrieve_tag_matches_has_exact_for_failed(self):
+        """tag_matches must have outcome=failed as exact match."""
+        mock = MockRetrievalEngine()
+        result = mock.retrieve(prompt_context="continue", session_id=None)
+        assert result["tag_matches"]["outcome=failed"] == "exact"
+
+
+class TestRetrievalEngine:
+    """Unit tests for RetrievalEngine with use_mock=True."""
+
+    def test_retrieve_with_mock_returns_mock_result(self):
+        """use_mock=True must delegate to MockRetrievalEngine."""
+        engine = RetrievalEngine(use_mock=True)
+        result = engine.retrieve(prompt_context="continue", session_id=None)
+        assert result["_mock"] is True
+
+    def test_retrieve_intent_detected(self):
+        """retrieve() must return a detected intent from the mock."""
+        engine = RetrievalEngine(use_mock=True)
+        result = engine.retrieve(prompt_context="retry the auth flow", session_id=None)
+        assert "intent" in result
+        # Mock returns its fixed intent regardless of prompt
+        assert result["intent"] == "continue_auth_flow_retry"
+
+
+class TestRetrieveEndpoint:
+    """Integration tests for POST /retrieve endpoint."""
+
+    @pytest.fixture
+    def client(self) -> TestClient:
+        return TestClient(app)
+
+    def test_retrieve_returns_200(self, client: TestClient):
+        """Endpoint must respond 200 for valid request."""
+        response = client.post(
+            "/retrieve",
+            json={"prompt_context": "continue the auth flow", "session_id": None},
+        )
+        assert response.status_code == 200
+
+    def test_retrieve_returns_mock_manifest(self, client: TestClient):
+        """Response must be a valid mock manifest with all required fields."""
+        response = client.post(
+            "/retrieve",
+            json={"prompt_context": "continue the auth flow", "session_id": None},
+        )
+        data = response.json()
+
+        assert data["_mock"] is True
+        assert "detected_tags" in data
+        assert "intent" in data
+        assert "injected_context" in data
+        assert "chunks_used" in data
+        assert "tag_matches" in data
+        assert "priority_scores" in data
+
+    def test_retrieve_session_id_passed(self, client: TestClient):
+        """session_id must be accepted without error."""
+        response = client.post(
+            "/retrieve",
+            json={
+                "prompt_context": "continue the auth flow",
+                "session_id": "sessions/test.md",
+            },
+        )
+        assert response.status_code == 200
+
+    def test_retrieve_injected_context_is_string(self, client: TestClient):
+        """injected_context must be a non-empty string."""
+        response = client.post(
+            "/retrieve",
+            json={"prompt_context": "continue the auth flow", "session_id": None},
+        )
+        data = response.json()
+        assert isinstance(data["injected_context"], str)
+        assert len(data["injected_context"]) > 0
+
+    def test_retrieve_priority_scores_are_floats(self, client: TestClient):
+        """priority_scores values must be floats."""
+        response = client.post(
+            "/retrieve",
+            json={"prompt_context": "continue the auth flow", "session_id": None},
+        )
+        data = response.json()
+        for score in data["priority_scores"].values():
+            assert isinstance(score, float)
+
+    def test_retrieve_tag_matches_has_outcome_field(self, client: TestClient):
+        """tag_matches must have an outcome key."""
+        response = client.post(
+            "/retrieve",
+            json={"prompt_context": "continue the auth flow", "session_id": None},
+        )
+        data = response.json()
+        assert "outcome" in str(data["tag_matches"])
+

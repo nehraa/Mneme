@@ -1,0 +1,972 @@
+TYPE_CHECK: FAIL
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:364:32 - error: "n_ff" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:513:63 - error: Expected 0 positional arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:533:31 - error: Cannot access attribute "id_to_piece" for class "SentencePieceProcessor"
+    Attribute "id_to_piece" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:535:38 - error: Cannot access attribute "get_score" for class "SentencePieceProcessor"
+    Attribute "get_score" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:538:26 - error: Cannot access attribute "is_unknown" for class "SentencePieceProcessor"
+    Attribute "is_unknown" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:540:26 - error: Cannot access attribute "is_control" for class "SentencePieceProcessor"
+    Attribute "is_control" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:547:26 - error: Cannot access attribute "is_unused" for class "SentencePieceProcessor"
+    Attribute "is_unused" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:549:26 - error: Cannot access attribute "is_byte" for class "SentencePieceProcessor"
+    Attribute "is_byte" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:752:9 - error: Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to declared type "ndarray[Unknown, Unknown]"
+    Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to type "ndarray[Unknown, Unknown]"
+      "Literal[0]" is not assignable to "ndarray[Unknown, Unknown]" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:758:32 - error: "simd_n_out" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:758:44 - error: "simd_n_out" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:759:33 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:760:50 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:762:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:762:28 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:762:42 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:762:81 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:762:90 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:763:9 - error: Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to declared type "ndarray[Unknown, Unknown]"
+    Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to type "ndarray[Unknown, Unknown]"
+      "Literal[0]" is not assignable to "ndarray[Unknown, Unknown]" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:764:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:764:38 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:764:47 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:764:61 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:764:70 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:766:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:766:36 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:768:12 - error: Type "ndarray[Unknown, Unknown]" is not assignable to return type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]"
+    "ndarray[Unknown, Unknown]" is not assignable to "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:784:62 - error: Expression of type "None" cannot be assigned to parameter of type "NDArray"
+    "None" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:796:62 - error: Argument of type "Unknown | NDArray | int" cannot be assigned to parameter "i2_scale" of type "NDArray" in function "__init__"
+    Type "Unknown | NDArray | int" is not assignable to type "NDArray"
+      "int" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:923:36 - error: Argument of type "str" cannot be assigned to parameter "format" of type "Literal['ggml', 'torch', 'safetensors', 'none']" in function "__init__"
+    Type "str" is not assignable to type "Literal['ggml', 'torch', 'safetensors', 'none']"
+      "str" is not assignable to type "Literal['ggml']"
+      "str" is not assignable to type "Literal['torch']"
+      "str" is not assignable to type "Literal['safetensors']"
+      "str" is not assignable to type "Literal['none']" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:1302:45 - error: Argument of type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" cannot be assigned to parameter "tensor" of type "ndarray[Any, Any]" in function "write_tensor_data"
+    "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:1332:16 - error: Type "tuple[DataType, NDArray, NDArray | Unknown | int]" is not assignable to return type "tuple[DataType, NDArray]"
+    "tuple[DataType, NDArray, NDArray | Unknown | int]" is not assignable to "tuple[DataType, NDArray]"
+      Tuple size mismatch; expected 2 but received 3 (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:1336:9 - error: Expression with type "tuple[DataType, NDArray]" cannot be assigned to target tuple
+    Type "tuple[DataType, NDArray]" is incompatible with target tuple
+      Tuple size mismatch; expected 3 but received 2 (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:1338:20 - error: Type "tuple[NDArray, Unknown]" is not assignable to return type "NDArray"
+    "tuple[NDArray, Unknown]" is not assignable to "ndarray[Any, Any]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert.py:1603:37 - error: Cannot access attribute "newbyteorder" for class "uint32"
+    Attribute "newbyteorder" is unknown (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:933:27 - error: No overloads for "reshape" match the provided arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:933:46 - error: Argument of type "tuple[Any | None, Literal[3], Any | Unknown, Any | None]" cannot be assigned to parameter "shape" of type "int | SymInt" in function "reshape"
+    Type "tuple[Any | None, Literal[3], Any | Unknown, Any | None]" is not assignable to type "int | SymInt"
+      "tuple[Any | None, Literal[3], Any | Unknown, Any | None]" is not assignable to "int"
+      "tuple[Any | None, Literal[3], Any | Unknown, Any | None]" is not assignable to "SymInt" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:933:58 - error: Operator "//" not supported for "None" (reportOptionalOperand)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:944:24 - error: No overloads for "reshape" match the provided arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:944:43 - error: Argument of type "tuple[Any | None, Literal[3], Any | Unknown]" cannot be assigned to parameter "shape" of type "int | SymInt" in function "reshape"
+    Type "tuple[Any | None, Literal[3], Any | Unknown]" is not assignable to type "int | SymInt"
+      "tuple[Any | None, Literal[3], Any | Unknown]" is not assignable to "int"
+      "tuple[Any | None, Literal[3], Any | Unknown]" is not assignable to "SymInt" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:944:55 - error: Operator "//" not supported for "None" (reportOptionalOperand)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:967:45 - error: Argument of type "Any | None" cannot be assigned to parameter "length" of type "int" in function "add_context_length"
+    Type "Any | None" is not assignable to type "int"
+      "None" is not assignable to "int" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:968:47 - error: Argument of type "Any | None" cannot be assigned to parameter "length" of type "int" in function "add_embedding_length"
+    Type "Any | None" is not assignable to type "int"
+      "None" is not assignable to "int" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:969:50 - error: Operator "*" not supported for types "Literal[4]" and "Any | None"
+    Operator "*" not supported for types "Literal[4]" and "None" when expected type is "int | Sequence[int]" (reportOperatorIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:971:41 - error: Argument of type "Any | None" cannot be assigned to parameter "count" of type "int | Sequence[int]" in function "add_head_count"
+    Type "Any | None" is not assignable to type "int | Sequence[int]"
+      Type "None" is not assignable to type "int | Sequence[int]"
+        "None" is not assignable to "int"
+        "None" is not assignable to "Sequence[int]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:972:44 - error: Argument of type "Any | None" cannot be assigned to parameter "count" of type "int | Sequence[int]" in function "add_head_count_kv"
+    Type "Any | None" is not assignable to type "int | Sequence[int]"
+      Type "None" is not assignable to type "int | Sequence[int]"
+        "None" is not assignable to "int"
+        "None" is not assignable to "Sequence[int]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:990:27 - error: No overloads for "reshape" match the provided arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:990:46 - error: Argument of type "tuple[Any | None, Literal[3], Any | Unknown, Any | None]" cannot be assigned to parameter "shape" of type "int | SymInt" in function "reshape"
+    Type "tuple[Any | None, Literal[3], Any | Unknown, Any | None]" is not assignable to type "int | SymInt"
+      "tuple[Any | None, Literal[3], Any | Unknown, Any | None]" is not assignable to "int"
+      "tuple[Any | None, Literal[3], Any | Unknown, Any | None]" is not assignable to "SymInt" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:990:58 - error: Operator "//" not supported for "None" (reportOptionalOperand)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:1001:24 - error: No overloads for "reshape" match the provided arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:1001:43 - error: Argument of type "tuple[Any | None, Literal[3], Any | Unknown]" cannot be assigned to parameter "shape" of type "int | SymInt" in function "reshape"
+    Type "tuple[Any | None, Literal[3], Any | Unknown]" is not assignable to type "int | SymInt"
+      "tuple[Any | None, Literal[3], Any | Unknown]" is not assignable to "int"
+      "tuple[Any | None, Literal[3], Any | Unknown]" is not assignable to "SymInt" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:1001:55 - error: Operator "//" not supported for "None" (reportOptionalOperand)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:3977:45 - error: Argument of type "Any | None" cannot be assigned to parameter "length" of type "int" in function "add_context_length"
+    Type "Any | None" is not assignable to type "int"
+      "None" is not assignable to "int" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:3978:47 - error: Argument of type "Any | None" cannot be assigned to parameter "length" of type "int" in function "add_embedding_length"
+    Type "Any | None" is not assignable to type "int"
+      "None" is not assignable to "int" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:3979:86 - error: Operator "*" not supported for types "Literal[4]" and "Any | None"
+    Operator "*" not supported for types "Literal[4]" and "None" when expected type is "None" (reportOperatorIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:3981:41 - error: Argument of type "Any | None" cannot be assigned to parameter "count" of type "int | Sequence[int]" in function "add_head_count"
+    Type "Any | None" is not assignable to type "int | Sequence[int]"
+      Type "None" is not assignable to type "int | Sequence[int]"
+        "None" is not assignable to "int"
+        "None" is not assignable to "Sequence[int]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/convert_hf_to_gguf.py:3982:44 - error: Argument of type "Any | None" cannot be assigned to parameter "count" of type "int | Sequence[int]" in function "add_head_count_kv"
+    Type "Any | None" is not assignable to type "int | Sequence[int]"
+      Type "None" is not assignable to type "int | Sequence[int]"
+        "None" is not assignable to "int"
+        "None" is not assignable to "Sequence[int]" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/convert_legacy_llama.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/convert_legacy_llama.py:1289:37 - error: Cannot access attribute "newbyteorder" for class "uint32"
+    Attribute "newbyteorder" is unknown (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/llava/convert_image_encoder_to_gguf.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/llava/convert_image_encoder_to_gguf.py:8:18 - warning: Wildcard import from a library not allowed (reportWildcardImportFromLibrary)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/llava/convert_image_encoder_to_gguf.py:278:28 - error: Argument of type "Any | None" cannot be assigned to parameter "f" of type "FileLike" in function "load"
+    Type "Any | None" is not assignable to type "FileLike"
+      Type "None" is not assignable to type "FileLike"
+        "None" is not assignable to "str"
+        "None" is incompatible with protocol "PathLike[str]"
+          "__fspath__" is not present
+        "None" is not assignable to "IO[bytes]" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/llava/minicpmv-convert-image-encoder-to-gguf.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/llava/minicpmv-convert-image-encoder-to-gguf.py:415:18 - warning: Wildcard import from a library not allowed (reportWildcardImportFromLibrary)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/llava/minicpmv-convert-image-encoder-to-gguf.py:416:87 - error: "Idefics2VisionConfig" is not exported from module "transformers.models.idefics2.modeling_idefics2"
+    Import from "transformers.models.idefics2.configuration_idefics2" instead (reportPrivateImportUsage)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/llava/minicpmv-convert-image-encoder-to-gguf.py:717:28 - error: Argument of type "Any | None" cannot be assigned to parameter "f" of type "FileLike" in function "load"
+    Type "Any | None" is not assignable to type "FileLike"
+      Type "None" is not assignable to type "FileLike"
+        "None" is not assignable to "str"
+        "None" is incompatible with protocol "PathLike[str]"
+          "__fspath__" is not present
+        "None" is not assignable to "IO[bytes]" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:732:55 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:733:93 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:735:45 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:797:51 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:798:89 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:799:31 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:889:55 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:890:93 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:892:45 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:951:51 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:952:89 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/pydantic_models_to_grammar.py:953:31 - information: Cannot access attribute "Config" for class "type[BaseModel]"
+    Attribute "Config" is unknown (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:23:6 - warning: Import "behave" could not be resolved from source (reportMissingModuleSource)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:24:6 - error: Import "behave.api.async_step" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:241:2 - error: Argument of type "(context: Unknown, expecting_status: str | Literal['healthy', 'ready', 'idle', 'busy'], timeout: int) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, expecting_status: str | Literal['healthy', 'ready', 'idle', 'busy'], timeout: int) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, expecting_status: str | Literal['healthy', 'ready', 'idle', 'busy'], timeout: int) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:247:2 - error: Argument of type "(context: Unknown, expecting_status: str | Literal['healthy', 'ready', 'idle', 'busy']) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, expecting_status: str | Literal['healthy', 'ready', 'idle', 'busy']) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, expecting_status: str | Literal['healthy', 'ready', 'idle', 'busy']) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:253:2 - error: Argument of type "(context: Unknown, expected_slot_status_string: str | Literal['idle', 'busy']) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, expected_slot_status_string: str | Literal['idle', 'busy']) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, expected_slot_status_string: str | Literal['idle', 'busy']) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:269:2 - error: Argument of type "(context: Unknown, api_error: str | Literal['raised']) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, api_error: str | Literal['raised']) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, api_error: str | Literal['raised']) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:306:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:315:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:324:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:492:2 - error: Argument of type "(context: Unknown, api_error: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, api_error: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, api_error: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:552:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:569:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:590:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:611:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:617:2 - error: Argument of type "(context: Unknown, n_expected_predicted: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, n_expected_predicted: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, n_expected_predicted: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:631:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:638:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:654:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:691:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:701:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:711:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:720:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:731:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:763:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:780:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:789:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:806:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:836:2 - error: Argument of type "(context: Unknown, origin: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, origin: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, origin: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:852:2 - error: Argument of type "(context: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:925:2 - error: Argument of type "(context: Unknown, slot_id: Unknown, filename: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, slot_id: Unknown, filename: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, slot_id: Unknown, filename: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:935:2 - error: Argument of type "(context: Unknown, slot_id: Unknown, filename: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, slot_id: Unknown, filename: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, slot_id: Unknown, filename: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:945:2 - error: Argument of type "(context: Unknown, slot_id: Unknown) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, slot_id: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, slot_id: Unknown) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:954:2 - error: Argument of type "(context: Unknown, on_or_off: str, lora_id: int) -> CoroutineType[Any, Any, None]" cannot be assigned to parameter of type "_F@step"
+    Type "(context: Unknown, on_or_off: str, lora_id: int) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+      Type "(context: Unknown, on_or_off: str, lora_id: int) -> CoroutineType[Any, Any, None]" is not assignable to type "(Context, ...) -> None"
+        Function return type "CoroutineType[Any, Any, None]" is incompatible with type "None"
+          "CoroutineType[Any, Any, None]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:1449:29 - error: "DETACHED_PROCESS" is not a known attribute of module "subprocess" (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:1450:29 - error: "CREATE_NEW_PROCESS_GROUP" is not a known attribute of module "subprocess" (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/examples/server/tests/features/steps/steps.py:1451:29 - error: "CREATE_NO_WINDOW" is not a known attribute of module "subprocess" (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/docs/conf.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/docs/conf.py:21:8 - error: Import "kp" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/docs/conf.py:22:8 - error: Import "sphinx_material" could not be resolved (reportMissingImports)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/neural_network_vgg7/run_vgg7.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/neural_network_vgg7/run_vgg7.py:1:8 - error: Import "kp" could not be resolved (reportMissingImports)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/neural_network_vgg7/sh_conv.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/neural_network_vgg7/sh_conv.py:3:8 - error: Import "kp" could not be resolved (reportMissingImports)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/benchmark.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/benchmark.py:3:8 - error: Import "kp" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/benchmark.py:24:28 - error: Argument of type "list[int]" cannot be assigned to parameter "tensor_shape" of type "tuple[int, int]" in function "__call__"
+    "list[int]" is not assignable to "tuple[int, int]" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/first_example.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/first_example.py:1:8 - error: Import "kp" could not be resolved (reportMissingImports)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp1_naive.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp1_naive.py:3:8 - error: Import "kp" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp1_naive.py:114:15 - error: Argument of type "list[int]" cannot be assigned to parameter "tensor_shape" of type "tuple[int, int]" in function "__call__"
+    "list[int]" is not assignable to "tuple[int, int]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp1_naive.py:119:19 - error: Argument of type "list[int]" cannot be assigned to parameter "tensor_shape" of type "tuple[int, int]" in function "__call__"
+    "list[int]" is not assignable to "tuple[int, int]" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp2_tiled.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp2_tiled.py:3:8 - error: Import "kp" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp2_tiled.py:113:15 - error: Argument of type "list[int]" cannot be assigned to parameter "tensor_shape" of type "tuple[int, int]" in function "__call__"
+    "list[int]" is not assignable to "tuple[int, int]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp2_tiled.py:118:19 - error: Argument of type "list[int]" cannot be assigned to parameter "tensor_shape" of type "tuple[int, int]" in function "__call__"
+    "list[int]" is not assignable to "tuple[int, int]" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp3_better_tiling.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp3_better_tiling.py:3:8 - error: Import "kp" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp3_better_tiling.py:134:15 - error: Argument of type "list[int]" cannot be assigned to parameter "tensor_shape" of type "tuple[int, int]" in function "__call__"
+    "list[int]" is not assignable to "tuple[int, int]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/imp3_better_tiling.py:139:19 - error: Argument of type "list[int]" cannot be assigned to parameter "tensor_shape" of type "tuple[int, int]" in function "__call__"
+    "list[int]" is not assignable to "tuple[int, int]" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/matmul_plot.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/matmul_plot.py:3:8 - error: Import "cv2" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/python_naive_matmul/matmul_plot.py:7:90 - error: Expression of type "None" cannot be assigned to parameter of type "tuple[int, int]"
+    "None" is not assignable to "tuple[int, int]" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_array_multiplication.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_array_multiplication.py:1:8 - error: Import "pyshader" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_array_multiplication.py:2:8 - error: Import "kp" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_array_multiplication.py:29:70 - error: Cannot access attribute "to_spirv" for class "FunctionType"
+    Attribute "to_spirv" is unknown (reportFunctionMemberAccess)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_kompute.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_kompute.py:3:8 - error: Import "kp" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_kompute.py:6:8 - error: Import "pyshader" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_kompute.py:258:20 - error: "f32" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_kompute.py:259:20 - error: "f32" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_kompute.py:261:66 - error: Cannot access attribute "to_spirv" for class "FunctionType"
+    Attribute "to_spirv" is unknown (reportFunctionMemberAccess)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py:1:8 - error: Import "pyshader" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py:3:8 - error: Import "kp" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py:25:18 - error: "vec2" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py:28:18 - error: "vec2" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py:33:30 - error: "exp" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py:39:28 - error: "log" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py:39:60 - error: "log" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_logistic_regression.py:79:70 - error: Cannot access attribute "to_spirv" for class "FunctionType"
+    Attribute "to_spirv" is unknown (reportFunctionMemberAccess)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_tensor_types.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/python/test/test_tensor_types.py:3:8 - error: Import "kp" could not be resolved (reportMissingImports)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/scripts/convert_shaders.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/scripts/convert_shaders.py:73:24 - error: Expression of type "None" cannot be assigned to parameter of type "str"
+    "None" is not assignable to "str" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/scripts/convert_shaders.py:74:26 - error: Expression of type "None" cannot be assigned to parameter of type "str"
+    "None" is not assignable to "str" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/scripts/convert_shaders.py:75:25 - error: Expression of type "None" cannot be assigned to parameter of type "bool"
+    "None" is not assignable to "bool" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/scripts/convert_shaders.py:76:21 - error: Expression of type "None" cannot be assigned to parameter of type "bool"
+    "None" is not assignable to "bool" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/scripts/convert_shaders.py:92:35 - error: Cannot access attribute "replace" for class "bool"
+    Attribute "replace" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/scripts/convert_shaders.py:136:23 - error: No overloads for "join" match the provided arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/scripts/convert_shaders.py:136:36 - error: Argument of type "Unknown | Literal[True]" cannot be assigned to parameter "a" of type "StrPath" in function "join"
+    Type "Unknown | Literal[True]" is not assignable to type "StrPath"
+      Type "Literal[True]" is not assignable to type "StrPath"
+        "Literal[True]" is not assignable to "str"
+        "Literal[True]" is incompatible with protocol "PathLike[str]"
+          "__fspath__" is not present (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/setup.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/ggml/src/kompute/setup.py:30:85 - error: "group" is not a known attribute of "None" (reportOptionalMemberAccess)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/gguf/gguf_reader.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/gguf/gguf_reader.py:104:41 - error: Cannot access attribute "newbyteorder" for class "NDArray[Any]"
+    Attribute "newbyteorder" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/gguf/gguf_reader.py:151:14 - error: Cannot access attribute "newbyteorder" for class "ndarray[_Shape, dtype[Any]]"
+    Attribute "newbyteorder" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/gguf/gguf_reader.py:306:62 - error: Argument of type "Literal[GGMLQuantizationType.Q4_0, GGMLQuantizationType.Q4_1, GGMLQuantizationType.Q5_0, GGMLQuantizationType.Q5_1, GGMLQuantizationType.Q8_0, GGMLQuantizationType.Q8_1, GGMLQuantizationType.Q2_K, GGMLQuantizationType.Q3_K, GGMLQuantizationType.Q4_K, GGMLQuantizationType.Q5_K, GGMLQuantizationType.Q6_K, GGMLQuantizationType.Q8_K, GGMLQuantizationType.IQ2_XXS, GGMLQuantizationType.IQ2_XS, GGMLQuantizationType.IQ3_XXS, GGMLQuantizationType.IQ1_S, GGMLQuantizationType.IQ4_NL, GGMLQuantizationType.IQ3_S, GGMLQuantizationType.IQ2_S, GGMLQuantizationType.IQ4_XS, GGMLQuantizationType.IQ1_M, GGMLQuantizationType.BF16, GGMLQuantizationType.Q4_0_4_4, GGMLQuantizationType.Q4_0_4_8, GGMLQuantizationType.Q4_0_8_8, GGMLQuantizationType.TQ1_0, GGMLQuantizationType.TQ2_0, GGMLQuantizationType.TL1, GGMLQuantizationType.TL2]" cannot be assigned to parameter "quant_type" of type "GGMLQuantizationType" in function "quant_shape_to_byte_shape"
+    Type "Literal[GGMLQuantizationType.Q4_0, GGMLQuantizationType.Q4_1, GGMLQuantizationType.Q5_0, GGMLQuantizationType.Q5_1, GGMLQuantizationType.Q8_0, GGMLQuantizationType.Q8_1, GGMLQuantizationType.Q2_K, GGMLQuantizationType.Q3_K, GGMLQuantizationType.Q4_K, GGMLQuantizationType.Q5_K, GGMLQuantizationType.Q6_K, GGMLQuantizationType.Q8_K, GGMLQuantizationType.IQ2_XXS, GGMLQuantizationType.IQ2_XS, GGMLQuantizationType.IQ3_XXS, GGMLQuantizationType.IQ1_S, GGMLQuantizationType.IQ4_NL, GGMLQuantizationType.IQ3_S, GGMLQuantizationType.IQ2_S, GGMLQuantizationType.IQ4_XS, GGMLQuantizationType.IQ1_M, GGMLQuantizationType.BF16, GGMLQuantizationType.Q4_0_4_4, GGMLQuantizationType.Q4_0_4_8, GGMLQuantizationType.Q4_0_8_8, GGMLQuantizationType.TQ1_0, GGMLQuantizationType.TQ2_0, GGMLQuantizationType.TL1, GGMLQuantizationType.TL2]" is not assignable to type "GGMLQuantizationType"
+      "Literal[GGMLQuantizationType.Q4_0]" is not assignable to "GGMLQuantizationType" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/gguf/gguf_writer.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/gguf/gguf_writer.py:903:16 - error: Type "bytearray | Any" is not assignable to return type "bytes"
+    Type "bytearray | Any" is not assignable to type "bytes"
+      "bytearray" is not assignable to "bytes"
+      Set disableBytesTypePromotions to false to enable type promotion behavior for "bytearray" and "memoryview" (reportReturnType)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/scripts/gguf_convert_endian.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/scripts/gguf_convert_endian.py:23:37 - error: Cannot access attribute "newbyteorder" for class "uint32"
+    Attribute "newbyteorder" is unknown (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/scripts/gguf_dump.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/scripts/gguf_dump.py:24:60 - error: Cannot access attribute "newbyteorder" for class "uint32"
+    Attribute "newbyteorder" is unknown (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/scripts/gguf_new_metadata.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/gguf-py/scripts/gguf_new_metadata.py:31:37 - error: Cannot access attribute "newbyteorder" for class "uint32"
+    Attribute "newbyteorder" is unknown (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/scripts/compare-llama-bench.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/scripts/compare-llama-bench.py:13:10 - warning: Import "tabulate" could not be resolved from source (reportMissingModuleSource)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/test_op/preprocess_mad_lut.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/test_op/preprocess_mad_lut.py:186:30 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/test_op/preprocess_mad_lut.py:187:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/test_op/preprocess_mad_lut.py:188:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/test_op/preprocess_mad_lut.py:188:48 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/test_op/preprocess_mad_lut.py:193:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+/Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/tests/test-tokenizer-random.py
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/tests/test-tokenizer-random.py:146:55 - error: Argument of type "dict_values[str, int] | Unknown" cannot be assigned to parameter "sequences" of type "list[int] | list[list[int]] | ndarray[Unknown, Unknown] | torch._tensor.Tensor | tensorflow.Tensor" in function "batch_decode"
+    Type "dict_values[str, int] | Unknown" is not assignable to type "list[int] | list[list[int]] | ndarray[Unknown, Unknown] | torch._tensor.Tensor | tensorflow.Tensor"
+      Type "dict_values[str, int]" is not assignable to type "list[int] | list[list[int]] | ndarray[Unknown, Unknown] | torch._tensor.Tensor | tensorflow.Tensor"
+        "dict_values[str, int]" is not assignable to "list[int]"
+        "dict_values[str, int]" is not assignable to "list[list[int]]"
+        "dict_values[str, int]" is not assignable to "ndarray[Unknown, Unknown]"
+        "dict_values[str, int]" is not assignable to "Tensor"
+        "dict_values[str, int]" is not assignable to "Tensor" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/tests/test-tokenizer-random.py:425:33 - error: Argument of type "Unknown | str | list[str] | None" cannot be assigned to parameter "prefix" of type "str | tuple[str, ...]" in function "startswith"
+    Type "Unknown | str | list[str] | None" is not assignable to type "str | tuple[str, ...]"
+      Type "list[str]" is not assignable to type "str | tuple[str, ...]"
+        "list[str]" is not assignable to "str"
+        "list[str]" is not assignable to "tuple[str, ...]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/tests/test-tokenizer-random.py:426:35 - error: Argument of type "Unknown | str | list[str] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    Type "Unknown | str | list[str] | None" is not assignable to type "Sized"
+      "None" is incompatible with protocol "Sized"
+        "__len__" is not present (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/tests/test-tokenizer-random.py:428:31 - error: Argument of type "Unknown | str | list[str] | None" cannot be assigned to parameter "suffix" of type "str | tuple[str, ...]" in function "endswith"
+    Type "Unknown | str | list[str] | None" is not assignable to type "str | tuple[str, ...]"
+      Type "list[str]" is not assignable to type "str | tuple[str, ...]"
+        "list[str]" is not assignable to "str"
+        "list[str]" is not assignable to "tuple[str, ...]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/3rdparty/llama.cpp/tests/test-tokenizer-random.py:429:37 - error: Argument of type "Unknown | str | list[str] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+    Type "Unknown | str | list[str] | None" is not assignable to type "Sized"
+      "None" is incompatible with protocol "Sized"
+        "__len__" is not present (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/gpu/convert_safetensors.py
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/convert_safetensors.py:20:30 - error: Type "None" is not assignable to declared type "int"
+    "None" is not assignable to "int" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/convert_safetensors.py:56:31 - error: Argument of type "str | None" cannot be assigned to parameter "name" of type "str" in function "from_name"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:15:8 - error: Import "fire" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:21:6 - error: Import "xformers.ops.fmha.attn_bias" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:148:13 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:150:17 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:152:38 - error: "replay" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:206:13 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:207:13 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:209:39 - error: "replay" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:247:18 - error: Object of type "None" cannot be called (reportOptionalCall)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:249:18 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:266:33 - error: Cannot access attribute "eot_id" for class "Tokenizer"
+    Attribute "eot_id" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:269:22 - error: Object of type "None" cannot be called (reportOptionalCall)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:271:29 - error: "view" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:288:32 - error: "niter" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:294:37 - error: Cannot access attribute "eot_id" for class "Tokenizer"
+    Attribute "eot_id" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:331:23 - error: Cannot assign to attribute "tokenizer" for class "FastGen"
+    "ChatFormat" is not assignable to "Tokenizer" (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/generate.py:337:35 - error: Cannot access attribute "encode_dialog_prompt" for class "Tokenizer"
+    Attribute "encode_dialog_prompt" is unknown (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/BitNet/gpu/model.py
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/model.py:13:6 - error: Import "xformers.ops" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/model.py:14:6 - error: Import "xformers.ops.fmha.attn_bias" could not be resolved (reportMissingImports)
+/Users/abhinavnehra/git/Mneme/BitNet/gpu/tokenizer.py
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/tokenizer.py:238:20 - error: Type "tuple[list[int], list[int]]" is not assignable to return type "List[int]"
+    "tuple[list[int], list[int]]" is not assignable to "List[int]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/tokenizer.py:240:16 - error: Type "tuple[list[int], None]" is not assignable to return type "List[int]"
+    "tuple[list[int], None]" is not assignable to "List[int]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/tokenizer.py:247:27 - error: Argument of type "int" cannot be assigned to parameter "iterable" of type "Iterable[int]" in function "extend"
+    "int" is incompatible with protocol "Iterable[int]"
+      "__iter__" is not present (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/tokenizer.py:249:32 - error: Argument of type "int" cannot be assigned to parameter "iterable" of type "Iterable[int]" in function "extend"
+    "int" is incompatible with protocol "Iterable[int]"
+      "__iter__" is not present (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/gpu/tokenizer.py:255:20 - error: Type "tuple[list[int], list[int]]" is not assignable to return type "List[int]"
+    "tuple[list[int], list[int]]" is not assignable to "List[int]" (reportReturnType)
+/Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:233:16 - error: Type "(modelcls: type[Model]) -> type[Model]" is not assignable to return type "(AnyModel@register) -> AnyModel@register"
+    Type "(modelcls: type[Model]) -> type[Model]" is not assignable to type "(AnyModel@register) -> AnyModel@register"
+      Function return type "type[Model]" is incompatible with type "AnyModel@register"
+        Type "type[Model]" is not assignable to type "AnyModel@register" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:388:44 - error: Expected 0 positional arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:392:31 - error: Cannot access attribute "id_to_piece" for class "SentencePieceProcessor"
+    Attribute "id_to_piece" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:394:31 - error: Cannot access attribute "get_score" for class "SentencePieceProcessor"
+    Attribute "get_score" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:397:26 - error: Cannot access attribute "is_unknown" for class "SentencePieceProcessor"
+    Attribute "is_unknown" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:399:28 - error: Cannot access attribute "is_control" for class "SentencePieceProcessor"
+    Attribute "is_control" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:401:28 - error: Cannot access attribute "is_unused" for class "SentencePieceProcessor"
+    Attribute "is_unused" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:403:28 - error: Cannot access attribute "is_byte" for class "SentencePieceProcessor"
+    Attribute "is_byte" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:426:31 - error: Argument of type "str" cannot be assigned to parameter "object" of type "bytes" in function "append"
+    "str" is not assignable to "bytes" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:483:6 - error: "Tuple" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:518:46 - error: "by" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:601:6 - error: "Tuple" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:643:26 - error: "by" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:648:38 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:649:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:650:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:650:48 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:655:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:684:5 - error: "model_arch" incorrectly overrides property of same name in class "Model" (reportIncompatibleMethodOverride)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:684:18 - error: Type "Literal[MODEL_ARCH.LLAMA]" is not assignable to declared type "property"
+    "Literal[MODEL_ARCH.LLAMA]" is not assignable to "property" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:871:81 - error: "Iterable" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:916:41 - error: "Iterable" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:934:35 - error: "math" is not defined (reportUndefinedVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:943:29 - error: Cannot access attribute "format_tensor_name" for class "LlamaModel*"
+    Attribute "format_tensor_name" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:946:17 - error: Cannot access attribute "prepare_tensors" for class "object"
+    Attribute "prepare_tensors" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:958:5 - error: "model_arch" incorrectly overrides property of same name in class "Model" (reportIncompatibleMethodOverride)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:958:18 - error: Type "Literal[MODEL_ARCH.BITNET]" is not assignable to declared type "property"
+    "Literal[MODEL_ARCH.BITNET]" is not assignable to "property" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-hf-to-gguf-bitnet.py:1007:81 - error: "Iterable" is not defined (reportUndefinedVariable)
+/Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:362:32 - error: "n_ff" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:511:63 - error: Expected 0 positional arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:531:31 - error: Cannot access attribute "id_to_piece" for class "SentencePieceProcessor"
+    Attribute "id_to_piece" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:533:38 - error: Cannot access attribute "get_score" for class "SentencePieceProcessor"
+    Attribute "get_score" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:536:26 - error: Cannot access attribute "is_unknown" for class "SentencePieceProcessor"
+    Attribute "is_unknown" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:538:26 - error: Cannot access attribute "is_control" for class "SentencePieceProcessor"
+    Attribute "is_control" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:545:26 - error: Cannot access attribute "is_unused" for class "SentencePieceProcessor"
+    Attribute "is_unused" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:547:26 - error: Cannot access attribute "is_byte" for class "SentencePieceProcessor"
+    Attribute "is_byte" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:750:9 - error: Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to declared type "ndarray[Unknown, Unknown]"
+    Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to type "ndarray[Unknown, Unknown]"
+      "Literal[0]" is not assignable to "ndarray[Unknown, Unknown]" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:756:32 - error: "simd_n_out" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:756:44 - error: "simd_n_out" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:757:33 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:758:50 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:760:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:760:28 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:760:42 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:760:81 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:760:90 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:761:9 - error: Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to declared type "ndarray[Unknown, Unknown]"
+    Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to type "ndarray[Unknown, Unknown]"
+      "Literal[0]" is not assignable to "ndarray[Unknown, Unknown]" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:762:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:762:38 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:762:47 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:762:61 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:762:70 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:764:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:764:36 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:766:12 - error: Type "ndarray[Unknown, Unknown]" is not assignable to return type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]"
+    "ndarray[Unknown, Unknown]" is not assignable to "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:782:62 - error: Expression of type "None" cannot be assigned to parameter of type "NDArray"
+    "None" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:794:62 - error: Argument of type "Unknown | NDArray | int" cannot be assigned to parameter "i2_scale" of type "NDArray" in function "__init__"
+    Type "Unknown | NDArray | int" is not assignable to type "NDArray"
+      "int" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:921:36 - error: Argument of type "str" cannot be assigned to parameter "format" of type "Literal['ggml', 'torch', 'safetensors', 'none']" in function "__init__"
+    Type "str" is not assignable to type "Literal['ggml', 'torch', 'safetensors', 'none']"
+      "str" is not assignable to type "Literal['ggml']"
+      "str" is not assignable to type "Literal['torch']"
+      "str" is not assignable to type "Literal['safetensors']"
+      "str" is not assignable to type "Literal['none']" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:1274:45 - error: Argument of type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" cannot be assigned to parameter "tensor" of type "ndarray[Any, Any]" in function "write_tensor_data"
+    "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:1304:16 - error: Type "tuple[DataType, NDArray, NDArray | Unknown | int]" is not assignable to return type "tuple[DataType, NDArray]"
+    "tuple[DataType, NDArray, NDArray | Unknown | int]" is not assignable to "tuple[DataType, NDArray]"
+      Tuple size mismatch; expected 2 but received 3 (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:1308:9 - error: Expression with type "tuple[DataType, NDArray]" cannot be assigned to target tuple
+    Type "tuple[DataType, NDArray]" is incompatible with target tuple
+      Tuple size mismatch; expected 3 but received 2 (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert-ms-to-gguf-bitnet.py:1310:20 - error: Type "tuple[NDArray, Unknown]" is not assignable to return type "NDArray"
+    "tuple[NDArray, Unknown]" is not assignable to "ndarray[Any, Any]" (reportReturnType)
+/Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:362:32 - error: "n_ff" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:511:63 - error: Expected 0 positional arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:531:31 - error: Cannot access attribute "id_to_piece" for class "SentencePieceProcessor"
+    Attribute "id_to_piece" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:533:38 - error: Cannot access attribute "get_score" for class "SentencePieceProcessor"
+    Attribute "get_score" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:536:26 - error: Cannot access attribute "is_unknown" for class "SentencePieceProcessor"
+    Attribute "is_unknown" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:538:26 - error: Cannot access attribute "is_control" for class "SentencePieceProcessor"
+    Attribute "is_control" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:545:26 - error: Cannot access attribute "is_unused" for class "SentencePieceProcessor"
+    Attribute "is_unused" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:547:26 - error: Cannot access attribute "is_byte" for class "SentencePieceProcessor"
+    Attribute "is_byte" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:750:9 - error: Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to declared type "ndarray[Unknown, Unknown]"
+    Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to type "ndarray[Unknown, Unknown]"
+      "Literal[0]" is not assignable to "ndarray[Unknown, Unknown]" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:756:32 - error: "simd_n_out" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:756:44 - error: "simd_n_out" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:757:33 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:758:50 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:760:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:760:28 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:760:42 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:760:81 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:760:90 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:761:9 - error: Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to declared type "ndarray[Unknown, Unknown]"
+    Type "NDArray[signedinteger[Any]] | Literal[0]" is not assignable to type "ndarray[Unknown, Unknown]"
+      "Literal[0]" is not assignable to "ndarray[Unknown, Unknown]" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:762:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:762:38 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:762:47 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:762:61 - error: "kfactor" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:762:70 - error: "simd_n_in" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:764:24 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:764:36 - error: "bm" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:766:12 - error: Type "ndarray[Unknown, Unknown]" is not assignable to return type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]"
+    "ndarray[Unknown, Unknown]" is not assignable to "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:782:62 - error: Expression of type "None" cannot be assigned to parameter of type "NDArray"
+    "None" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:794:62 - error: Argument of type "Unknown | NDArray | int" cannot be assigned to parameter "i2_scale" of type "NDArray" in function "__init__"
+    Type "Unknown | NDArray | int" is not assignable to type "NDArray"
+      "int" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:921:36 - error: Argument of type "str" cannot be assigned to parameter "format" of type "Literal['ggml', 'torch', 'safetensors', 'none']" in function "__init__"
+    Type "str" is not assignable to type "Literal['ggml', 'torch', 'safetensors', 'none']"
+      "str" is not assignable to type "Literal['ggml']"
+      "str" is not assignable to type "Literal['torch']"
+      "str" is not assignable to type "Literal['safetensors']"
+      "str" is not assignable to type "Literal['none']" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:1205:45 - error: Argument of type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" cannot be assigned to parameter "tensor" of type "ndarray[Any, Any]" in function "write_tensor_data"
+    "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" is not assignable to "ndarray[Any, Any]" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:1235:16 - error: Type "tuple[DataType, NDArray, NDArray | Unknown | int]" is not assignable to return type "tuple[DataType, NDArray]"
+    "tuple[DataType, NDArray, NDArray | Unknown | int]" is not assignable to "tuple[DataType, NDArray]"
+      Tuple size mismatch; expected 2 but received 3 (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:1239:9 - error: Expression with type "tuple[DataType, NDArray]" cannot be assigned to target tuple
+    Type "tuple[DataType, NDArray]" is incompatible with target tuple
+      Tuple size mismatch; expected 3 but received 2 (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/convert.py:1241:20 - error: Type "tuple[NDArray, Unknown]" is not assignable to return type "NDArray"
+    "tuple[NDArray, Unknown]" is not assignable to "ndarray[Any, Any]" (reportReturnType)
+/Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:152:14 - error: Cannot access attribute "_set_vocab_gpt2" for class "Model*"
+    Attribute "_set_vocab_gpt2" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:305:16 - error: Type "(modelcls: type[Model]) -> type[Model]" is not assignable to return type "(AnyModel@register) -> AnyModel@register"
+    Type "(modelcls: type[Model]) -> type[Model]" is not assignable to type "(AnyModel@register) -> AnyModel@register"
+      Function return type "type[Model]" is incompatible with type "AnyModel@register"
+        Type "type[Model]" is not assignable to type "AnyModel@register" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:443:44 - error: Expected 0 positional arguments (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:447:31 - error: Cannot access attribute "id_to_piece" for class "SentencePieceProcessor"
+    Attribute "id_to_piece" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:449:31 - error: Cannot access attribute "get_score" for class "SentencePieceProcessor"
+    Attribute "get_score" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:452:26 - error: Cannot access attribute "is_unknown" for class "SentencePieceProcessor"
+    Attribute "is_unknown" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:454:28 - error: Cannot access attribute "is_control" for class "SentencePieceProcessor"
+    Attribute "is_control" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:456:28 - error: Cannot access attribute "is_unused" for class "SentencePieceProcessor"
+    Attribute "is_unused" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:458:28 - error: Cannot access attribute "is_byte" for class "SentencePieceProcessor"
+    Attribute "is_byte" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:481:31 - error: Argument of type "str" cannot be assigned to parameter "object" of type "bytes" in function "append"
+    "str" is not assignable to "bytes" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:574:12 - error: Type "NDArray[unsignedinteger[_8Bit]]" is not assignable to return type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]"
+    "ndarray[_Shape, dtype[unsignedinteger[_8Bit]]]" is not assignable to "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:761:38 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:762:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:763:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:763:48 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:768:26 - error: "two_weight" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:773:12 - error: Type "NDArray[unsignedinteger[_8Bit]]" is not assignable to return type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]"
+    "ndarray[_Shape, dtype[unsignedinteger[_8Bit]]]" is not assignable to "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:778:5 - error: "model_arch" incorrectly overrides property of same name in class "Model" (reportIncompatibleMethodOverride)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:778:18 - error: Type "Literal[MODEL_ARCH.BITNET]" is not assignable to declared type "property"
+    "Literal[MODEL_ARCH.BITNET]" is not assignable to "property" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:833:45 - error: Return type of generator function must be compatible with "Generator[tuple[Literal['model.embed_tokens.weight'], Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:835:63 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:836:61 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:837:65 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:838:61 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:839:59 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:840:72 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:841:71 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:842:64 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:843:64 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:844:64 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:845:70 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:846:64 - error: Return type of generator function must be compatible with "Generator[tuple[str, Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:848:36 - error: Return type of generator function must be compatible with "Generator[tuple[Literal['model.norm.weight'], Tensor], Any, Any]"
+    "Tensor" is not assignable to "ndarray[Unknown, Unknown]" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:873:41 - error: Cannot access attribute "to" for class "ndarray[Unknown, Unknown]"
+    Attribute "to" is unknown (reportAttributeAccessIssue)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:882:93 - error: Argument of type "Unknown | ndarray[Unknown, Unknown]" cannot be assigned to parameter "data_torch" of type "Tensor" in function "modify_tensors"
+    Type "Unknown | ndarray[Unknown, Unknown]" is not assignable to type "Tensor"
+      "ndarray[Unknown, Unknown]" is not assignable to "Tensor" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:925:42 - error: Type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" is not assignable to declared type "ndarray[Unknown, Unknown]"
+    "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" is not assignable to "ndarray[Unknown, Unknown]" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:930:42 - error: Type "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" is not assignable to declared type "ndarray[Unknown, Unknown]"
+    "Tuple[ndarray[Unknown, Unknown], ndarray[Unknown, Unknown]]" is not assignable to "ndarray[Unknown, Unknown]" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/BitNet/utils/generate-dummy-bitnet-model.py:973:24 - error: Cannot access attribute "set_params" for class "Model"
+    Attribute "set_params" is unknown (reportAttributeAccessIssue)
+/Users/abhinavnehra/git/Mneme/src/config.py
+  /Users/abhinavnehra/git/Mneme/src/config.py:26:31 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:36:35 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:41:28 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:44:25 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:50:24 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:54:37 - error: Argument of type "str | None" cannot be assigned to parameter "x" of type "ConvertibleToInt" in function "__new__"
+    Type "str | None" is not assignable to type "ConvertibleToInt"
+      Type "None" is not assignable to type "ConvertibleToInt"
+        "None" is not assignable to "str"
+        "None" is incompatible with protocol "Buffer"
+          "__buffer__" is not present
+        "None" is incompatible with protocol "SupportsInt"
+          "__int__" is not present
+        "None" is incompatible with protocol "SupportsIndex"
+    ... (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:54:37 - error: Argument of type "str | None" cannot be assigned to parameter "x" of type "ConvertibleToInt" in function "__new__"
+    Type "str | None" is not assignable to type "ConvertibleToInt"
+      Type "None" is not assignable to type "ConvertibleToInt"
+        "None" is not assignable to "str"
+        "None" is incompatible with protocol "Buffer"
+          "__buffer__" is not present
+        "None" is incompatible with protocol "SupportsInt"
+          "__int__" is not present
+        "None" is incompatible with protocol "SupportsIndex" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:56:25 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:60:37 - error: Argument of type "str | None" cannot be assigned to parameter "x" of type "ConvertibleToInt" in function "__new__"
+    Type "str | None" is not assignable to type "ConvertibleToInt"
+      Type "None" is not assignable to type "ConvertibleToInt"
+        "None" is not assignable to "str"
+        "None" is incompatible with protocol "Buffer"
+          "__buffer__" is not present
+        "None" is incompatible with protocol "SupportsInt"
+          "__int__" is not present
+        "None" is incompatible with protocol "SupportsIndex"
+    ... (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:60:37 - error: Argument of type "str | None" cannot be assigned to parameter "x" of type "ConvertibleToInt" in function "__new__"
+    Type "str | None" is not assignable to type "ConvertibleToInt"
+      Type "None" is not assignable to type "ConvertibleToInt"
+        "None" is not assignable to "str"
+        "None" is incompatible with protocol "Buffer"
+          "__buffer__" is not present
+        "None" is incompatible with protocol "SupportsInt"
+          "__int__" is not present
+        "None" is incompatible with protocol "SupportsIndex" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:63:64 - error: "lower" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/src/config.py:71:17 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:72:23 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:80:16 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:81:17 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:91:17 - error: Type "str | None" is not assignable to declared type "str"
+    Type "str | None" is not assignable to type "str"
+      "None" is not assignable to "str" (reportAssignmentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:92:51 - error: Argument of type "str | None" cannot be assigned to parameter "x" of type "ConvertibleToInt" in function "__new__"
+    Type "str | None" is not assignable to type "ConvertibleToInt"
+      Type "None" is not assignable to type "ConvertibleToInt"
+        "None" is not assignable to "str"
+        "None" is incompatible with protocol "Buffer"
+          "__buffer__" is not present
+        "None" is incompatible with protocol "SupportsInt"
+          "__int__" is not present
+        "None" is incompatible with protocol "SupportsIndex"
+    ... (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/src/config.py:92:51 - error: Argument of type "str | None" cannot be assigned to parameter "x" of type "ConvertibleToInt" in function "__new__"
+    Type "str | None" is not assignable to type "ConvertibleToInt"
+      Type "None" is not assignable to type "ConvertibleToInt"
+        "None" is not assignable to "str"
+        "None" is incompatible with protocol "Buffer"
+          "__buffer__" is not present
+        "None" is incompatible with protocol "SupportsInt"
+          "__int__" is not present
+        "None" is incompatible with protocol "SupportsIndex" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/src/graph/index.py
+  /Users/abhinavnehra/git/Mneme/src/graph/index.py:39:30 - error: "get_related_chunks" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/src/graph/index.py:71:34 - error: "get_related_chunks" is not a known attribute of "None" (reportOptionalMemberAccess)
+/Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py
+  /Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py:67:26 - error: "client" is possibly unbound (reportPossiblyUnboundVariable)
+  /Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py:70:24 - error: Import "structlog" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py:81:28 - error: "create_chunk" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py:104:28 - error: "create_edge" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py:119:32 - error: "get_chunk" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py:141:40 - error: "get_chunk" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py:141:55 - error: "get" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/src/ingestion/pipeline.py:142:35 - error: "get_chunk" is not a known attribute of "None" (reportOptionalMemberAccess)
+/Users/abhinavnehra/git/Mneme/src/memory_store/neo4j_repository.py
+  /Users/abhinavnehra/git/Mneme/src/memory_store/neo4j_repository.py:18:6 - error: Import "neo4j" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/src/memory_store/neo4j_repository.py:19:6 - error: Import "neo4j.exceptions" could not be resolved (reportMissingImports)
+  /Users/abhinavnehra/git/Mneme/src/memory_store/neo4j_repository.py:396:37 - error: "related_tag_tree" is possibly unbound (reportPossiblyUnboundVariable)
+/Users/abhinavnehra/git/Mneme/src/retrieval/engine.py
+  /Users/abhinavnehra/git/Mneme/src/retrieval/engine.py:168:17 - error: No parameter named "chunk_id" (reportCallIssue)
+/Users/abhinavnehra/git/Mneme/src/retrieval/qdrant_search.py
+  /Users/abhinavnehra/git/Mneme/src/retrieval/qdrant_search.py:75:21 - error: Argument of type "float" cannot be assigned to parameter "timeout" of type "int | None" in function "__init__"
+    Type "float" is not assignable to type "int | None"
+      "float" is not assignable to "int"
+      "float" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/src/retrieval/qdrant_search.py:155:41 - error: "get" is not a known attribute of "None" (reportOptionalMemberAccess)
+  /Users/abhinavnehra/git/Mneme/src/retrieval/qdrant_search.py:209:32 - error: Argument of type "dict[str, dict[str, int | Distance]]" cannot be assigned to parameter "vectors_config" of type "VectorParams | Mapping[str, VectorParams] | None" in function "create_collection"
+    Type "dict[str, dict[str, int | Distance]]" is not assignable to type "VectorParams | Mapping[str, VectorParams] | None"
+      "dict[str, dict[str, int | Distance]]" is not assignable to "VectorParams"
+      "dict[str, dict[str, int | Distance]]" is not assignable to "Mapping[str, VectorParams]"
+        Type parameter "_VT_co@Mapping" is covariant, but "dict[str, int | Distance]" is not a subtype of "VectorParams"
+          "dict[str, int | Distance]" is not assignable to "VectorParams"
+      "dict[str, dict[str, int | Distance]]" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/src/retrieval/qdrant_search.py:216:54 - error: No parameter named "collection" (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/src/retrieval/qdrant_search.py:221:17 - error: No parameter named "collection" (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/src/retrieval/qdrant_search.py:270:28 - error: Argument of type "list[FieldCondition]" cannot be assigned to parameter "must" of type "Condition | List[Condition] | None" in function "__init__"
+    Type "list[FieldCondition]" is not assignable to type "Condition | List[Condition] | None"
+      "list[FieldCondition]" is not assignable to "List[Condition]"
+        Type parameter "_T@list" is invariant, but "FieldCondition" is not the same as "Condition"
+        Consider switching from "list" to "Sequence" which is covariant
+      "list[FieldCondition]" is not assignable to "FieldCondition"
+      "list[FieldCondition]" is not assignable to "IsEmptyCondition"
+      "list[FieldCondition]" is not assignable to "IsNullCondition"
+      "list[FieldCondition]" is not assignable to "HasIdCondition"
+    ... (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/src/server.py
+  /Users/abhinavnehra/git/Mneme/src/server.py:128:17 - error: No parameter named "host" (reportCallIssue)
+  /Users/abhinavnehra/git/Mneme/src/server.py:129:17 - error: No parameter named "collection" (reportCallIssue)
+/Users/abhinavnehra/git/Mneme/tests/test_diff_engine.py
+  /Users/abhinavnehra/git/Mneme/tests/test_diff_engine.py:294:40 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository" in function "__init__"
+    "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/tests/test_graph.py
+  /Users/abhinavnehra/git/Mneme/tests/test_graph.py:57:39 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_graph.py:67:40 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_graph.py:74:39 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/tests/test_guard.py
+  /Users/abhinavnehra/git/Mneme/tests/test_guard.py:83:40 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository" in function "__init__"
+    "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_guard.py:132:40 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository" in function "__init__"
+    "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_guard.py:148:40 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository" in function "__init__"
+    "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_guard.py:160:40 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository" in function "__init__"
+    "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/tests/test_hook.py
+  /Users/abhinavnehra/git/Mneme/tests/test_hook.py:77:24 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository" in function "__init__"
+    "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_hook.py:130:24 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository" in function "__init__"
+    "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_hook.py:178:24 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository" in function "__init__"
+    "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/tests/test_ingestion.py
+  /Users/abhinavnehra/git/Mneme/tests/test_ingestion.py:50:49 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_ingestion.py:86:49 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_ingestion.py:108:49 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/tests/test_neo4j_repository.py
+  /Users/abhinavnehra/git/Mneme/tests/test_neo4j_repository.py:59:45 - error: Return type of generator function must be compatible with "Generator[Any, Any, Any]"
+    "Generator[Any, Any, Any]" is not assignable to "Neo4jMemoryRepository" (reportInvalidTypeForm)
+  /Users/abhinavnehra/git/Mneme/tests/test_neo4j_repository.py:61:11 - error: Return type of generator function must be compatible with "Generator[Neo4jMemoryRepository, Any, Any]"
+    "Generator[Neo4jMemoryRepository, Unknown, Unknown]" is not assignable to "Neo4jMemoryRepository" (reportReturnType)
+/Users/abhinavnehra/git/Mneme/tests/test_qdrant_search.py
+  /Users/abhinavnehra/git/Mneme/tests/test_qdrant_search.py:24:24 - error: Return type of generator function must be compatible with "Generator[Any, Any, Any]"
+    "Generator[Any, Any, Any]" is not assignable to "QdrantSearch" (reportInvalidTypeForm)
+  /Users/abhinavnehra/git/Mneme/tests/test_qdrant_search.py:56:11 - error: Return type of generator function must be compatible with "Generator[QdrantSearch, Any, Any]"
+    "Generator[QdrantSearch, Unknown, Unknown]" is not assignable to "QdrantSearch" (reportReturnType)
+  /Users/abhinavnehra/git/Mneme/tests/test_qdrant_search.py:60:52 - error: Argument of type "float" cannot be assigned to parameter "timeout" of type "int | None" in function "__init__"
+    Type "float" is not assignable to type "int | None"
+      "float" is not assignable to "int"
+      "float" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_qdrant_search.py:72:56 - error: Argument of type "float" cannot be assigned to parameter "timeout" of type "int | None" in function "__init__"
+    Type "float" is not assignable to type "int | None"
+      "float" is not assignable to "int"
+      "float" is not assignable to "None" (reportArgumentType)
+/Users/abhinavnehra/git/Mneme/tests/test_retrieval.py
+  /Users/abhinavnehra/git/Mneme/tests/test_retrieval.py:71:45 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_retrieval.py:86:45 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_retrieval.py:93:45 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+  /Users/abhinavnehra/git/Mneme/tests/test_retrieval.py:166:50 - error: Argument of type "InMemoryMemoryRepository" cannot be assigned to parameter "repository" of type "MemoryRepository | None" in function "__init__"
+    Type "InMemoryMemoryRepository" is not assignable to type "MemoryRepository | None"
+      "InMemoryMemoryRepository" is not assignable to "Neo4jMemoryRepository"
+      "InMemoryMemoryRepository" is not assignable to "None" (reportArgumentType)
+380 errors, 4 warnings, 12 informations
+BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/godot_logistic_regression/custom_module/kompute_model_ml/config.py: error: Duplicate module named "config" (also at "./BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/godot_examples/custom_module/kompute_summator/config.py")
+BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/godot_logistic_regression/custom_module/kompute_model_ml/config.py: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#mapping-file-paths-to-modules for more info
+BitNet/3rdparty/llama.cpp/ggml/src/kompute/examples/godot_logistic_regression/custom_module/kompute_model_ml/config.py: note: Common resolutions include: a) using `--exclude` to avoid checking one of them, b) adding `__init__.py` somewhere, c) using `--explicit-package-bases` or adjusting MYPYPATH
+Found 1 error in 1 file (errors prevented further checking)
