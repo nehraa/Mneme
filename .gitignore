@@ -1,6 +1,22 @@
 # Environment — NEVER commit actual keys
 .env
 
+# Local CodeRAG config (contains secrets in llm.apiKey) — keep the example, not the real one
+coderag.config.json
+
+# Audit / reasoning snapshots (may contain leaked keys from past runs)
+.qwen/
+.coderag/
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+
+# Model files (re-downloaded via setup_env.py)
+*.gguf
+BitNet/models/*/ggml-model-*.gguf
+BitNet/models/*/model.safetensors
+
 # Python
 __pycache__/
 *.py[cod]
@@ -25,3 +41,7 @@ Thumbs.db
 
 # Local Neo4j / Qdrant data (if stored locally)
 data/
+
+# Docker volumes (created by docker compose)
+.docker-volumes/
+
