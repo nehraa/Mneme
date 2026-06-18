@@ -13,11 +13,17 @@ NOT cache results — caching is the caller's responsibility if needed.
 """
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from typing import Any
 
 import httpx
+
+from src.llm_utils import post_with_rate_limit_retry
+
+
+logger = logging.getLogger(__name__)
 
 
 # Gemini embedding API constants
@@ -87,8 +93,11 @@ class GeminiEmbeddingClient:
 
         try:
             with httpx.Client(timeout=self._timeout) as client:
-                resp = client.post(url, params=params, headers=headers, json=payload)
-                resp.raise_for_status()
+                resp = post_with_rate_limit_retry(
+                    lambda: client.post(
+                        url, params=params, headers=headers, json=payload
+                    )
+                )
         except httpx.HTTPStatusError as exc:
             raise RuntimeError(
                 f"[GEMINI] Embedding request failed (HTTP {exc.response.status_code}): "

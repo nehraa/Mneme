@@ -39,6 +39,7 @@ from typing import Any
 import httpx
 
 from src.tagging.vocabulary import get_vocabulary
+from src.llm_utils import post_with_rate_limit_retry
 
 
 logger = logging.getLogger(__name__)
@@ -118,8 +119,9 @@ class MiniMaxTaggerClient:
 
         try:
             with httpx.Client(timeout=self._timeout) as client:
-                resp = client.post(url, headers=headers, json=payload)
-                resp.raise_for_status()
+                resp = post_with_rate_limit_retry(
+                    lambda: client.post(url, headers=headers, json=payload)
+                )
         except httpx.HTTPStatusError as exc:
             raise RuntimeError(
                 f"[MINIMAX] Tagging request failed (HTTP {exc.response.status_code}): "
