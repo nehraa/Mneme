@@ -12,7 +12,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -376,31 +376,45 @@ _qdrant_search: Any = None
 _repo_lock = threading.Lock()
 _qdrant_search_lock = threading.Lock()
 
+_T = TypeVar("_T")
+
+
+def _get_or_init(
+    attr_name: str, lock: threading.Lock, factory: Callable[[], _T | None]
+) -> _T | None:
+    """Double-checked-locking lazy init.
+
+    Returns the module-level attribute named ``attr_name`` if already set;
+    otherwise calls ``factory`` under ``lock`` to initialize it. The factory
+    may return ``None`` to signal that init failed; that ``None`` is cached so
+    subsequent callers do not retry on every request.
+    """
+    current = globals().get(attr_name)
+    if current is not None:
+        return current
+    with lock:
+        current = globals().get(attr_name)
+        if current is not None:
+            return current
+        current = factory()
+        globals()[attr_name] = current
+    return current
+
 
 def repo() -> Any:
-    global _repo
-    if _repo is not None:
-        return _repo
-    with _repo_lock:
-        if _repo is None:
-            _repo = get_repository()
-    return _repo
+    """Return the lazily-initialized memory repository, or None."""
+    return _get_or_init("_repo", _repo_lock, get_repository)
 
 
 def qdrant_search() -> Any:
     """Return the lazily-initialized QdrantSearch instance, or None."""
-    global _qdrant_search
-    if _qdrant_search is not None:
-        return _qdrant_search
-    with _qdrant_search_lock:
-        if _qdrant_search is not None:
-            return _qdrant_search
+    def _init() -> QdrantSearch | None:
         try:
             from src.config import get_config
             cfg = get_config()
             from src.retrieval.qdrant_search import QdrantSearch
 
-            _qdrant_search = QdrantSearch(
+            instance = QdrantSearch(
                 host=cfg.qdrant.host,
                 collection=cfg.qdrant.collection,
                 vector_size=cfg.qdrant.vector_size,
@@ -409,10 +423,12 @@ def qdrant_search() -> Any:
                 "QdrantSearch initialized: host=%s collection=%s",
                 cfg.qdrant.host, cfg.qdrant.collection,
             )
+            return instance
         except Exception as exc:
             logger.warning("Failed to initialize QdrantSearch: %s", exc)
-            _qdrant_search = None
-    return _qdrant_search
+            return None
+
+    return _get_or_init("_qdrant_search", _qdrant_search_lock, _init)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
