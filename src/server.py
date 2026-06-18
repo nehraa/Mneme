@@ -5,12 +5,13 @@ All endpoints back onto the real, Neo4j-backed implementations.
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -22,6 +23,48 @@ from src.memory_store import get_repository
 from src.models import next_chunk_id
 
 logger = logging.getLogger(__name__)
+
+# ── API key authentication ────────────────────────────────────────────────────
+#
+# When MNEME_API_KEY is set, all endpoints except /health require the
+# `X-Mneme-Key` header to match. Custom header (not Authorization) keeps
+# the CORS allowlist narrow and reserves Authorization for future JWT work.
+#
+# When MNEME_API_KEY is unset, the server stays open and logs a loud warning
+# at startup so the operator knows endpoints are unauthenticated.
+_API_KEY = os.environ.get("MNEME_API_KEY")
+if not _API_KEY:
+    logger.warning(
+        "SECURITY WARNING: MNEME_API_KEY is unset - all endpoints except "
+        "/health are UNAUTHENTICATED. This is intended for local development "
+        "only. Set MNEME_API_KEY to a strong random value before exposing "
+        "this server to any network."
+    )
+else:
+    logger.info(
+        "API key auth enabled - clients must send X-Mneme-Key header "
+        "(/health is exempt)."
+    )
+
+
+def verify_api_key(
+    x_mneme_key: str | None = Header(default=None, alias="X-Mneme-Key"),
+) -> None:
+    """FastAPI dependency that enforces MNEME_API_KEY.
+
+    Constant-time comparison via `hmac.compare_digest` to prevent timing
+    attacks against the configured key.
+
+    No-op when MNEME_API_KEY is unset (backward-compatible dev mode).
+    Raises HTTPException(403) when the configured key does not match the
+    header value.
+    """
+    if not _API_KEY:
+        return None
+    if x_mneme_key is None or not hmac.compare_digest(x_mneme_key, _API_KEY):
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
+    return None
+
 
 # ── Request / Response models ─────────────────────────────────────────────────
 
@@ -239,7 +282,12 @@ def health() -> dict[str, str]:
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@app.post("/memories", status_code=201, tags=["Phase 1"])
+@app.post(
+    "/memories",
+    status_code=201,
+    tags=["Phase 1"],
+    dependencies=[Depends(verify_api_key)],
+)
 def create_memory(body: CreateChunkRequest) -> JSONResponse:
     """
     POST /memories — create a new memory chunk.
@@ -323,7 +371,11 @@ def create_memory(body: CreateChunkRequest) -> JSONResponse:
     return JSONResponse(content=record, status_code=201)
 
 
-@app.get("/memories/{chunk_id}", tags=["Phase 1"])
+@app.get(
+    "/memories/{chunk_id}",
+    tags=["Phase 1"],
+    dependencies=[Depends(verify_api_key)],
+)
 def get_memory(chunk_id: str) -> JSONResponse:
     """
     GET /memories/{chunk_id} — retrieve a chunk by ID.
@@ -337,7 +389,11 @@ def get_memory(chunk_id: str) -> JSONResponse:
     return JSONResponse(content=chunk)
 
 
-@app.post("/memories/{chunk_id}/touch", tags=["Phase 1"])
+@app.post(
+    "/memories/{chunk_id}/touch",
+    tags=["Phase 1"],
+    dependencies=[Depends(verify_api_key)],
+)
 def touch_memory(chunk_id: str) -> JSONResponse:
     """
     POST /memories/{chunk_id}/touch — update last_accessed timestamp.
@@ -352,7 +408,11 @@ def touch_memory(chunk_id: str) -> JSONResponse:
     return JSONResponse(content={"chunk_id": chunk_id, "touched": True})
 
 
-@app.patch("/memories/{chunk_id}/tags", tags=["Phase 1"])
+@app.patch(
+    "/memories/{chunk_id}/tags",
+    tags=["Phase 1"],
+    dependencies=[Depends(verify_api_key)],
+)
 def update_memory_tags(chunk_id: str, body: UpdateTagsRequest) -> JSONResponse:
     """
     PATCH /memories/{chunk_id}/tags — update tags on an existing chunk.
@@ -363,7 +423,11 @@ def update_memory_tags(chunk_id: str, body: UpdateTagsRequest) -> JSONResponse:
     return JSONResponse(content=chunk)
 
 
-@app.get("/memories", tags=["Phase 1"])
+@app.get(
+    "/memories",
+    tags=["Phase 1"],
+    dependencies=[Depends(verify_api_key)],
+)
 def list_memories(
     tag: str | None = Query(None, description="Filter by tag (e.g. 'tool=auth')"),
     session_id: str | None = Query(None, description="Filter by session ID"),
@@ -384,7 +448,11 @@ def list_memories(
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@app.post("/ingest", tags=["Phase 2"])
+@app.post(
+    "/ingest",
+    tags=["Phase 2"],
+    dependencies=[Depends(verify_api_key)],
+)
 def ingest(body: IngestRequest) -> JSONResponse:
     """
     POST /ingest — ingest files and create chunks.
@@ -406,7 +474,11 @@ def ingest(body: IngestRequest) -> JSONResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@app.get("/graph/related/{chunk_id}", tags=["Phase 3"])
+@app.get(
+    "/graph/related/{chunk_id}",
+    tags=["Phase 3"],
+    dependencies=[Depends(verify_api_key)],
+)
 def get_related_chunks(
     chunk_id: str, depth: int = Query(1, ge=1, le=5)
 ) -> JSONResponse:
@@ -420,7 +492,11 @@ def get_related_chunks(
     return JSONResponse(content=result)
 
 
-@app.get("/graph/chains/{chunk_id}", tags=["Phase 3"])
+@app.get(
+    "/graph/chains/{chunk_id}",
+    tags=["Phase 3"],
+    dependencies=[Depends(verify_api_key)],
+)
 def get_chunk_chains(
     chunk_id: str, depth: int = Query(3, ge=2, le=5)
 ) -> JSONResponse:
@@ -439,7 +515,11 @@ def get_chunk_chains(
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@app.post("/retrieve", tags=["Phase 4"])
+@app.post(
+    "/retrieve",
+    tags=["Phase 4"],
+    dependencies=[Depends(verify_api_key)],
+)
 def retrieve(body: RetrieveRequest) -> JSONResponse:
     """
     POST /retrieve — given a prompt, retrieve relevant memories.
@@ -485,7 +565,11 @@ def retrieve(body: RetrieveRequest) -> JSONResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@app.post("/guard", tags=["Phase 5"])
+@app.post(
+    "/guard",
+    tags=["Phase 5"],
+    dependencies=[Depends(verify_api_key)],
+)
 def guard(body: GuardRequest) -> JSONResponse:
     """
     POST /guard — check if proposed change contradicts a past failed attempt.
@@ -530,7 +614,11 @@ def guard(body: GuardRequest) -> JSONResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@app.post("/inject", tags=["Phase 6"])
+@app.post(
+    "/inject",
+    tags=["Phase 6"],
+    dependencies=[Depends(verify_api_key)],
+)
 def inject(body: InjectRequest) -> JSONResponse:
     """
     POST /inject — mneme_inject equivalent over HTTP.
