@@ -12,7 +12,7 @@
 
 **Why:** The user wants an AI agent that remembers past work — what failed, what succeeded, what was tried — and surfaces it proactively in every new session, with a session boundary managed by `/new` (new conversation file = new session).
 
-**Architecture:** HTTP server (background daemon) + MCP tool that wraps retrieval. FS events for file watching. Neo4j for graph index + cross-chunk relationships. Qdrant for vector search. Three-tier LLM strategy: Anthropic-compatible API for chunking (user provides key); Gemini for tag-sorting during retrieval (user provides key, fallback to BitNet 1.58-bit local); BitNet 1.58-bit (llama-server, OpenAI-compatible HTTP API, local) for intent detection. No TTL — memories persist until manually deleted.
+**Architecture:** HTTP server (background daemon) + MCP tool that wraps retrieval. FS events for file watching. Neo4j for graph index + cross-chunk relationships. Qdrant for vector search. Three-tier LLM strategy: **MiniMax M2.7** (cloud, OpenAI-compatible) for LLM-assisted chunking by boundary definition + general inference; **Gemini Embedding 2** (cloud, gemini-embedding-2 model, 768-dim default) for semantic embeddings; **BitNet b1.58-2B-4T** (local llama-server, OpenAI-compatible HTTP at :8081) for intent detection. No TTL — memories persist until manually deleted.
 
 ---
 
@@ -22,7 +22,7 @@
 |---|---|
 | Graph index | Neo4j (local) |
 | Vector search | Qdrant (local) |
-| LLM strategy | Anthropic API (chunking, user key) → Gemini (tag-sort, user key) → BitNet 1.58-bit local (intent detection) |
+| LLM strategy | **MiniMax M2.7** (chunking + inference) → **Gemini Embedding 2** (semantic embeddings) → **BitNet 1.58-bit local** (intent detection) |
 | Process model | HTTP server (background daemon) |
 | Session boundary | File-based — `/new` creates a new conversation file, that's the session ID |
 | File watcher | FS events (filesystem watchers) |

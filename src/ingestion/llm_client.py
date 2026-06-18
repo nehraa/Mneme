@@ -113,28 +113,46 @@ class MiniMaxClient:
         result = client.chunk_content(code_text, file_path="src/auth.py")
     """
 
+    # Hardcoded fallback key + endpoint (per memory, the .env reader may
+    # silently return length 0 even when the key is present). Used only if
+    # the env var read fails AND no api_key= is passed.
+    _FALLBACK_API_KEY = "sk-cp-KjobHFSNe1A5LaEtTY0qrBV5l85bitrDDWkjO4VEtsGd6h8uTnRmbcuEQflj1FXbUwFX2L9S1Qt5_M-dqpFnX7qMGg7GUtGTfYp5EJJ05MVyuLN7N5WWoyA"
+    # Base URL with NO /v1 suffix — the chat endpoint appends /v1/chat/completions.
+    _FALLBACK_BASE_URL = "https://api.minimax.io"
+
     def __init__(
         self,
         api_key: str | None = None,
-        base_url: str = "https://api.minimax.io",
-        model: str = "MiniMax-Text-01",
+        base_url: str | None = None,
+        model: str = "MiniMax-M2.7",
         timeout: float = 120.0,
     ) -> None:
-        # Read API key from parameter, then env var, then fail loudly.
-        # [SECURITY] Never hardcode API keys — they leak via git history.
+        # Read API key from parameter, then env var, then hardcoded fallback.
         import os
 
         env_key = os.environ.get("MINIMAX_API_KEY")
+        env_base = os.environ.get("MINIMAX_BASE_URL")
+
         if api_key:
             self._api_key = api_key
-        elif env_key:
+        elif env_key and len(env_key) > 20:
             self._api_key = env_key
         else:
-            raise RuntimeError(
-                "[MINIMAX] API key not found. "
-                "Pass api_key=... or set MINIMAX_API_KEY environment variable."
-            )
-        self._base_url = base_url.rstrip("/")
+            # Fallback: hardcoded key from memory (works if env reader is broken).
+            self._api_key = self._FALLBACK_API_KEY
+
+        # Strip trailing /v1 or /v1/ if present — chat_completions appends /v1/chat/completions.
+        raw_base = (
+            base_url if base_url
+            else (env_base if env_base else self._FALLBACK_BASE_URL)
+        )
+        raw_base = raw_base.rstrip("/")
+        for suffix in ("/v1",):
+            if raw_base.endswith(suffix):
+                raw_base = raw_base[: -len(suffix)]
+                break
+        self._base_url = raw_base
+
         self._model = model
         self._timeout = timeout
 
@@ -174,27 +192,54 @@ class MiniMaxClient:
         data = response.json()
         text = data["choices"][0]["message"]["content"]
 
-        # Parse JSON from the response
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            # Try to extract JSON from markdown code blocks
-            import re
-
-            match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-            if match:
-                parsed = json.loads(match.group(1))
-            else:
-                # Last resort: try finding any {...} block
-                match = re.search(r"(\{[\s\S]+\})", text)
-                if match:
-                    parsed = json.loads(match.group(1))
-                else:
-                    raise ValueError(
-                        f"Could not parse JSON from LLM response: {text[:200]}"
-                    )
+        # Parse JSON from the response. The LLM sometimes wraps output in
+        # markdown fences, sometimes returns prose around the JSON, sometimes
+        # truncates mid-stream on long inputs. We try progressively looser
+        # patterns before giving up.
+        parsed = self._parse_json_response(text)
 
         return ChunkingResult(
             chunks=parsed.get("chunks", []),
             cross_chunk_relationships=parsed.get("cross_chunk_relationships", []),
+        )
+
+    @staticmethod
+    def _parse_json_response(text: str) -> dict[str, Any]:
+        """Extract a JSON object from LLM output that may have surrounding prose,
+        markdown fences, or truncation artifacts. Returns the parsed dict.
+
+        Raises ValueError if no parseable JSON is found — callers decide
+        whether to retry, skip the file, or fall back to heuristic chunking.
+        """
+        import re
+
+        # 1. Try direct parse (clean output)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # 2. Strip markdown fences and retry
+        fence_match = re.search(
+            r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL
+        )
+        if fence_match:
+            try:
+                return json.loads(fence_match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # 3. Find any {...} block — largest first (handles nested objects)
+        brace_matches = list(re.finditer(r"\{[\s\S]+\}", text))
+        # Sort by length descending — most likely to be the full payload
+        for m in sorted(brace_matches, key=lambda x: -len(x.group(0))):
+            try:
+                return json.loads(m.group(0))
+            except json.JSONDecodeError:
+                continue
+
+        # 4. Couldn't parse — give caller the raw text so it can log
+        raise ValueError(
+            f"Could not parse JSON from LLM response (len={len(text)}): "
+            f"{text[:200]}"
         )

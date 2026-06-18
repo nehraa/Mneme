@@ -42,6 +42,18 @@ services:
       BITNET_HOST: "host.docker.internal"
       BITNET_PORT: "${BITNET_PORT:-8081}"
       BITNET_MODEL: "${BITNET_MODEL:-bitnet-b1.58-2b-4t}"
+      # Three-tier LLM strategy (June 2026):
+      #   - MiniMax M2.7 for LLM-assisted chunking by boundary definition + inference
+      #   - Gemini Embedding 2 for semantic embeddings (768-dim)
+      #   - BitNet (above) for local intent detection
+      MINIMAX_API_KEY: "${MINIMAX_API_KEY}"
+      MINIMAX_BASE_URL: "${MINIMAX_BASE_URL:-https://api.minimax.io/v1}"
+      MINIMAX_MODEL: "${MINIMAX_MODEL:-MiniMax-M2.7}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GEMINI_API_KEY_FALLBACK: "${GEMINI_API_KEY_FALLBACK:-}"
+      GEMINI_EMBEDDING_MODEL: "${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}"
+      EMBEDDING_DIM: "${EMBEDDING_DIM:-768}"
+      EMBEDDING_BATCH_SIZE: "${EMBEDDING_BATCH_SIZE:-50}"
     # depends_on:
     #   llm:
     #     condition: service_healthy

@@ -59,7 +59,7 @@ class MiniMaxTaggerClient:
         self,
         api_key: str | None = None,
         base_url: str = "https://api.minimax.io",
-        model: str = "MiniMax-Text-01",
+        model: str = "MiniMax-M2.7",
         timeout: float = 30.0,
     ):
         # Read API key from parameter, then env var, then fail loudly
