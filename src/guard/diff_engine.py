@@ -246,20 +246,22 @@ def _cosine_similarity_over_embeddings(
     qdrant_search: Any,
 ) -> float:
     """
-    Compute cosine similarity between two strings via Qdrant embeddings.
+    Compute cosine similarity between two strings via in-process embeddings.
 
     Used by ``DiffEngine._semantic_similarity`` when both the embedding
     service and Qdrant client are wired in. This is the real semantic
-    path that the system will use in production.
+    path that the system uses in production.
 
-    TODO: Once the embedding service is wired in production, this should
-    do an in-process cosine similarity rather than routing through Qdrant:
+    Each input string is embedded in-process via ``embedding_service``,
+    then cosine similarity is computed directly over the resulting
+    dense vectors. The ``qdrant_search`` client is accepted for API
+    stability (callers pass it alongside ``embedding_service`` to signal
+    a fully wired semantic backend) but is not used here — similarity
+    is computed in-process so it stays correct even if Qdrant is
+    temporarily unavailable.
 
-        e1 = embedding_service(a)
-        e2 = embedding_service(b)
-        return _cosine(e1, e2)
-
-    Two reasonable approaches:
+    Two reasonable embedding backends are supported by the host
+    application:
 
     1. **Gemini embedding service** (preferred for production):
        Plug in `google.generativeai` or the `genai` SDK to call
@@ -272,29 +274,52 @@ def _cosine_similarity_over_embeddings(
        external API calls. Requires changing ``vector_size`` in
        ``QdrantConfig`` to match the chosen model.
 
-    Until either integration lands, this function is unreachable from
-    the production path; ``DiffEngine`` falls back to Jaccard via
-    ``_jaccard_similarity``.
-
     Args:
         a: First string (the proposed change).
         b: Second string (the contradicting chunk's content).
         embedding_service: Callable mapping string → dense vector.
-        qdrant_search: QdrantSearch client for the vector store.
+        qdrant_search: QdrantSearch client for the vector store
+                       (accepted for API stability; not used here).
 
     Returns:
-        Cosine similarity in [0.0, 1.0].
+        Cosine similarity in [0.0, 1.0]. Returns 0.0 when either input
+        is empty, when either embedding is the zero vector, or when
+        the two embeddings have mismatched dimensions.
     """
-    # TODO: replace this body with in-process cosine similarity as
-    # described in the docstring. Currently unreachable from production
-    # because DiffEngine is constructed without an embedding_service;
-    # _semantic_similarity will route through Jaccard instead.
-    raise NotImplementedError(
-        "Semantic similarity requires a real embedding service. "
-        "DiffEngine falls back to Jaccard until Gemini embedding or "
-        "sentence-transformers is wired in. "
-        "See src/guard/diff_engine.py::_cosine_similarity_over_embeddings."
-    )
+    if not a or not b:
+        return 0.0
+
+    vec_a = embedding_service(a)
+    vec_b = embedding_service(b)
+
+    if not vec_a or not vec_b:
+        return 0.0
+
+    if len(vec_a) != len(vec_b):
+        logger.warning(
+            "Embedding dimension mismatch: a=%d, b=%d; returning 0.0",
+            len(vec_a),
+            len(vec_b),
+        )
+        return 0.0
+
+    dot = sum(x * y for x, y in zip(vec_a, vec_b))
+    norm_a = sum(x * x for x in vec_a) ** 0.5
+    norm_b = sum(x * x for x in vec_b) ** 0.5
+
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+
+    similarity = dot / (norm_a * norm_b)
+    # Cosine similarity natively lives in [-1.0, 1.0]; the public contract
+    # for this function (and the guard's threshold comparison) is [0.0, 1.0],
+    # so clamp into that range. Negative values are treated as "no
+    # similarity" (0.0) and slight numerical overshoot above 1.0 is clipped.
+    if similarity < 0.0:
+        return 0.0
+    if similarity > 1.0:
+        return 1.0
+    return similarity
 
 
 def _jaccard_similarity(a: str, b: str) -> float:
