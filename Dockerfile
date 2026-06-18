@@ -35,6 +35,9 @@ WORKDIR /app
 COPY --from=builder --chown=mneme:mneme /app/.venv /app/.venv
 COPY --from=builder --chown=mneme:mneme /app/pyproject.toml /app/uv.lock ./
 COPY --chown=mneme:mneme src /app/src
+# Scripts + data dir needed for dev_server (JSONL chunks store + reload endpoint)
+COPY --chown=mneme:mneme scripts /app/scripts
+COPY --chown=mneme:mneme data /app/data
 
 # Add the venv to PATH so `uvicorn` and `python` resolve correctly
 ENV PATH="/app/.venv/bin:$PATH"
