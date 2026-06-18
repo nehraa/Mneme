@@ -5,10 +5,12 @@ All endpoints back onto the real, Neo4j-backed implementations.
 """
 from __future__ import annotations
 
+import glob
 import hmac
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
@@ -63,6 +65,130 @@ def verify_api_key(
         return None
     if x_mneme_key is None or not hmac.compare_digest(x_mneme_key, _API_KEY):
         raise HTTPException(status_code=403, detail="Invalid or missing API key")
+    return None
+
+
+# ── Ingest path allowlist ────────────────────────────────────────────────────
+#
+# MNEME_INGEST_ALLOWED_ROOTS is a comma-separated list of directories that
+# define where POST /ingest is allowed to read files from. This blocks the
+# trivial path-traversal attack where a client POSTs file_paths=["/etc/passwd"]
+# or file_paths=["../../sensitive.txt"] and the pipeline dutifully reads it.
+#
+# Behavior:
+#   - When MNEME_INGEST_ALLOWED_ROOTS is UNSET → log a loud warning and allow
+#     all paths (dev mode, same shape as MNEME_API_KEY).
+#   - When MNEME_INGEST_ALLOWED_ROOTS is set → only files resolved to a path
+#     that lives under one of the configured roots are accepted. Any other
+#     path is rejected with HTTPException(403) by the /ingest handler.
+#
+# Resolution uses Path.resolve() so symlinked traversal is also defeated:
+# a symlink inside an allowed root that points outside it still resolves to
+# the outside location, and the prefix check then rejects it.
+#
+# Glob patterns are accepted, but every file matched by the glob must also
+# resolve inside an allowed root — a pattern like "/etc/**/*.conf" will
+# expand into many matches, each individually validated.
+_ALLOWED_INGEST_ROOTS: list[Path] | None = None
+_allowed_roots_env = os.environ.get("MNEME_INGEST_ALLOWED_ROOTS")
+if not _allowed_roots_env or _allowed_roots_env.strip() == "":
+    _ALLOWED_INGEST_ROOTS = None
+    logger.warning(
+        "SECURITY WARNING: MNEME_INGEST_ALLOWED_ROOTS is unset - POST /ingest "
+        "will accept ANY file path from any client. This is intended for local "
+        "development only. Set MNEME_INGEST_ALLOWED_ROOTS to a comma-separated "
+        "list of directories (e.g. '/home/user/projects,/srv/code') before "
+        "exposing this server to any network."
+    )
+else:
+    _ALLOWED_INGEST_ROOTS = [
+        Path(p).expanduser().resolve()
+        for p in _allowed_roots_env.split(",")
+        if p.strip()
+    ]
+    logger.info(
+        "Ingest path allowlist active: %s",
+        [str(p) for p in _ALLOWED_INGEST_ROOTS],
+    )
+
+
+def _is_path_under_allowed_roots(resolved: Path) -> bool:
+    """Return True iff `resolved` lives under one of the configured allowlist roots.
+
+    Comparison uses Path.is_relative_to() (Python 3.9+) which is the
+    documented, symlink-aware way to test ancestry. Resolving once on the
+    caller side makes sure symlinks inside an allowed root that point
+    outside it still produce a `resolved` value the prefix check rejects.
+    """
+    if _ALLOWED_INGEST_ROOTS is None:
+        return True
+    for root in _ALLOWED_INGEST_ROOTS:
+        if resolved == root or root in resolved.parents:
+            return True
+    return False
+
+
+def _validate_ingest_paths(file_paths: list[str]) -> None:
+    """Validate every entry in `file_paths` against the ingest allowlist.
+
+    Two-layer check:
+      1. Validate the literal input pattern itself — resolved via
+         Path.resolve(strict=False) — so that traversal attempts like
+         "/etc/passwd" or "/tmp/allowed/../etc/passwd" are rejected even
+         when the filesystem glob returns zero matches.
+      2. Expand glob patterns (mirrors what the ingestion pipeline does)
+         and validate every match.
+
+    Raises HTTPException(403) on the first violation; returns None on
+    success. When MNEME_INGEST_ALLOWED_ROOTS is unset, validation is a
+    no-op and the warning logged at startup is the operator's only signal.
+    """
+    if _ALLOWED_INGEST_ROOTS is None:
+        return None
+
+    if not file_paths:
+        return None
+
+    for pattern in file_paths:
+        # Layer 1: reject literal patterns that resolve outside the
+        # allowlist, regardless of whether the file currently exists. This
+        # blocks `/etc/passwd`, `../../sensitive.txt`, and any other
+        # probing-style payload that wouldn't survive glob expansion.
+        try:
+            pattern_resolved = Path(pattern).expanduser().resolve(strict=False)
+        except OSError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Cannot resolve ingest path '{pattern}': {exc}",
+            ) from exc
+        if not _is_path_under_allowed_roots(pattern_resolved):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"Ingest path '{pattern}' (resolved to '{pattern_resolved}') "
+                    f"is outside the configured MNEME_INGEST_ALLOWED_ROOTS"
+                ),
+            )
+
+        # Layer 2: validate every glob match. A glob like "/srv/code/**/*.py"
+        # could expand to many files, all of which must individually live
+        # under the allowlist (Path.resolve() handles symlinked matches).
+        for match in glob.glob(pattern, recursive=True):
+            try:
+                resolved = Path(match).expanduser().resolve(strict=False)
+            except OSError as exc:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Cannot resolve ingest path '{match}': {exc}",
+                ) from exc
+            if not _is_path_under_allowed_roots(resolved):
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        f"Ingest path '{match}' (resolved to '{resolved}') "
+                        f"is outside the configured MNEME_INGEST_ALLOWED_ROOTS"
+                    ),
+                )
     return None
 
 
@@ -456,7 +582,13 @@ def list_memories(
 def ingest(body: IngestRequest) -> JSONResponse:
     """
     POST /ingest — ingest files and create chunks.
+
+    Validates every requested path against MNEME_INGEST_ALLOWED_ROOTS before
+    invoking the pipeline. Rejects with HTTPException(403) if any path
+    (literal or glob match) resolves outside the configured allowlist.
     """
+    _validate_ingest_paths(body.file_paths)
+
     from src.ingestion.pipeline import IngestionPipeline
 
     session_id = body.file_paths[0] if body.file_paths else "unknown"
