@@ -18,6 +18,8 @@ from typing import Any
 from neo4j import GraphDatabase
 from neo4j.exceptions import DriverError, ServiceUnavailable
 
+from src.models import RelationshipType
+
 # Edge relationship type constants (Cypher relationship type names)
 _REL_TYPE_SAME_TOOL_CALL = "SAME_TOOL_CALL"
 _REL_TYPE_PREREQUISITE = "PREREQUISITE"
@@ -25,14 +27,20 @@ _REL_TYPE_FOLLOWS = "FOLLOWS"
 _REL_TYPE_CONTRADICTS = "CONTRADICTS"
 _REL_TYPE_SAME_CONCEPT = "SAME_CONCEPT"
 
-# Map relationship_type enum value to Cypher relationship type name
-_REL_TYPE_MAP: dict[str, str] = {
-    "same_tool_call": _REL_TYPE_SAME_TOOL_CALL,
-    "prerequisite": _REL_TYPE_PREREQUISITE,
-    "follows": _REL_TYPE_FOLLOWS,
-    "contradicts": _REL_TYPE_CONTRADICTS,
-    "same_concept": _REL_TYPE_SAME_CONCEPT,
+# Map each RelationshipType enum value to its Cypher relationship-type label.
+# Built from the enum at import time so adding a new RelationshipType value
+# requires updating this map (fail-loud), and so the Cypher f-string below
+# can only ever receive a hard-coded constant string — never user input.
+_REL_TYPE_MAP: dict[RelationshipType, str] = {
+    RelationshipType.SAME_TOOL_CALL: _REL_TYPE_SAME_TOOL_CALL,
+    RelationshipType.PREREQUISITE: _REL_TYPE_PREREQUISITE,
+    RelationshipType.FOLLOWS: _REL_TYPE_FOLLOWS,
+    RelationshipType.CONTRADICTS: _REL_TYPE_CONTRADICTS,
+    RelationshipType.SAME_CONCEPT: _REL_TYPE_SAME_CONCEPT,
 }
+
+# Set of enum values (lowercase strings) accepted by create_edge at the boundary.
+_VALID_REL_TYPE_VALUES: frozenset[str] = frozenset(rt.value for rt in RelationshipType)
 
 _SCHEMA_SETUP_CYPHER = """
 CREATE CONSTRAINT chunk_id IF NOT EXISTS
@@ -310,9 +318,33 @@ class Neo4jMemoryRepository:
         dict
             Edge record with source_chunk_id, target_chunk_id, relationship_type,
             reason (matching the API response shape).
+
+        Raises
+        ------
+        ValueError
+            If ``relationship_type`` is not one of the values defined on
+            ``RelationshipType`` (e.g. ``"same_tool_call"``, ``"prerequisite"``,
+            ``"follows"``, ``"contradicts"``, ``"same_concept"``). The
+            relationship type is interpolated into a Cypher relationship
+            pattern, so anything outside the enum is rejected at the boundary
+            to prevent Cypher injection.
         """
         rel_type_str = edge.get("relationship_type", "")
-        rel_type_cypher = _REL_TYPE_MAP.get(rel_type_str, rel_type_str.upper())
+
+        # Strict validation: only allow values defined on the RelationshipType
+        # enum. Anything else (including empty strings, malicious payloads
+        # like ``"] -> (n) -- ``, or unknown LLM outputs) raises immediately.
+        # This is the boundary that prevents user-controlled strings from
+        # ever reaching the Cypher f-string below.
+        if rel_type_str not in _VALID_REL_TYPE_VALUES:
+            valid_values = ", ".join(sorted(_VALID_REL_TYPE_VALUES))
+            raise ValueError(
+                f"Invalid relationship_type {rel_type_str!r}. "
+                f"Must be one of: {valid_values}."
+            )
+
+        rel_type_enum = RelationshipType(rel_type_str)
+        rel_type_cypher = _REL_TYPE_MAP[rel_type_enum]
 
         cypher = f"""
         MATCH (src:Chunk {{chunk_id: $source_chunk_id}})
