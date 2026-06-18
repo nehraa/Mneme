@@ -83,9 +83,43 @@ app = FastAPI(
     description="Agentic hybrid memory system with RAG",
 )
 
-# CORS middleware — restrictive defaults for local-first deployment.
-# Override MNEME_CORS_ORIGINS env var to allow specific origins in production.
-_cors_origins = os.environ.get("MNEME_CORS_ORIGINS", "*").split(",")
+# CORS middleware — secure-by-default.
+#
+# Behavior:
+#   - If MNEME_CORS_ORIGINS is UNSET → allow no cross-origin requests (empty list).
+#     The server logs a warning at startup so operators know restrictive mode is active.
+#   - If MNEME_CORS_ORIGINS is set to "*" → reject at startup. A wildcard origin
+#     combined with allow_credentials=True is unsafe: any site can issue
+#     credentialed cross-origin requests against this API. Starlette also
+#     refuses this combination, so failing fast here surfaces the misconfiguration
+#     with a clear message instead of an opaque middleware error.
+#   - If MNEME_CORS_ORIGINS is set to a comma-separated list of origins → use them.
+#
+# Set MNEME_CORS_ORIGINS in production to the exact origin(s) that need access,
+# e.g. MNEME_CORS_ORIGINS="https://app.example.com" or a CSV for multiple.
+_cors_env = os.environ.get("MNEME_CORS_ORIGINS")
+if _cors_env is None or _cors_env.strip() == "":
+    _cors_origins: list[str] = []
+    logger.warning(
+        "CORS: MNEME_CORS_ORIGINS is unset — restrictive mode active. "
+        "No cross-origin requests will be allowed. "
+        "Set MNEME_CORS_ORIGINS to a comma-separated list of origins to enable CORS."
+    )
+else:
+    _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+    if _cors_origins == ["*"]:
+        # allow_credentials=True + wildcard origin is unsafe. Refuse to start
+        # so the operator must make an explicit, safe choice.
+        raise RuntimeError(
+            "Insecure CORS configuration: MNEME_CORS_ORIGINS='*' is not "
+            "allowed because allow_credentials=True. Set MNEME_CORS_ORIGINS "
+            "to a comma-separated list of explicit origins (e.g. "
+            "'https://app.example.com') or unset it to deny all cross-origin requests."
+        )
+    logger.info(
+        "CORS: allowing cross-origin requests from %s", _cors_origins
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
