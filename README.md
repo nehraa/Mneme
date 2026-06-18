@@ -42,11 +42,13 @@ Mneme is a **memory management system with RAG** built for AI agents. When an AI
 | Phase | Description | Status |
 |---|---|---|
 | 1 | Core Memory Store (CRUD + data model) | ✅ Done |
-| 2 | LLM-Assisted Ingestion Pipeline | 🔜 Next |
-| 3 | Graph Index (Neo4j) | Pending |
-| 4 | Tag-Aware Retrieval Engine | Pending |
-| 5 | Memory Guard (diff against memory) | Pending |
-| 6 | Pre-Tool Hook (MCP interface) | Pending |
+| 2 | LLM-Assisted Ingestion Pipeline | ✅ Done (mock-first, MiniMax real impl) |
+| 3 | Graph Index (Neo4j) | ✅ Done (mock-first, Neo4j real impl) |
+| 4 | Tag-Aware Retrieval Engine | ✅ Done (mock + 4-component scoring) |
+| 5 | Memory Guard (diff against memory) | ✅ Done (mock-first, Neo4j + Qdrant real impl) |
+| 6 | Pre-Tool Hook (MCP interface) | ✅ Done (Mneme orchestrator) |
+
+**All phases implemented in mock-first architecture.** See `MOCKS_AND_PLACEHOLDERS.md` for swap points.
 
 ## Quick Start
 
