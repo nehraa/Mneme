@@ -1,0 +1,827 @@
+===== FILE: SPEC.md =====
+# Mneme — Agentic Hybrid Memory System
+
+## Context
+
+**What:** A memory management system with RAG that:
+1. Watches directories, chunks all files (including subfolders) using LLM-assisted boundary detection within a 512K context window
+2. Links chunks both linearly (page index per file) and across files (graph index via LLM-identified relationships)
+3. Tags each chunk with outcome metadata: `work_done / no_tool_called / successfully_called / failed / stopped`
+4. On every AI agent prompt (proactively, before every outbound API call), fires a pre-tool hook that detects intent/tags from the incoming context, runs LLM-assisted retrieval filtered by tag priority, and injects relevant memory chunks into the context
+5. LLM strategy (three-tier): Anthropic-compatible API (user provides key) for chunking + boundary definition; Gemini (user provides key, tried first) for tag sorting during retrieval with Ollama 100-200M local fallback; Ollama 100-200M for intent detection (local, offline)
+6. Has a "diff against memory" guard: warns before writing code that contradicts a past failed attempt
+
+**Why:** The user wants an AI agent that remembers past work — what failed, what succeeded, what was tried — and surfaces it proactively in every new session, with a session boundary managed by `/new` (new conversation file = new session).
+
+**Architecture:** HTTP server (background daemon) + MCP tool that wraps retrieval. FS events for file watching. Neo4j for graph index + cross-chunk relationships. Qdrant for vector search. Three-tier LLM strategy: Anthropic-compatible API for chunking (user provides key); Gemini for tag-sorting during retrieval (user provides key, fallback to Ollama local); Ollama 100-200M local for intent detection. No TTL — memories persist until manually deleted.
+
+---
+
+## Confirmed Design Decisions
+
+| Decision | Choice |
+|---|---|
+| Graph index | Neo4j (local) |
+| Vector search | Qdrant (local) |
+| LLM strategy | Anthropic API (chunking, user key) → Gemini (tag-sort, user key) → Ollama 100-200M local (intent detection) |
+| Process model | HTTP server (background daemon) |
+| Session boundary | File-based — `/new` creates a new conversation file, that's the session ID |
+| File watcher | FS events (filesystem watchers) |
+| Memory TTL | Never expire / manual delete |
+| Source directory | `/git/Mneme` (the repo itself) |
+| Hook mode | Proactive before every outbound API call + manual trigger |
+| Memory guard | Yes — block/warn before writing code that contradicts failed attempt |
+| Namespace | Project + Session (file path of conversation) |
+| First phase | Phase 1: Memory Store |
+
+---
+
+## System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     Mneme HTTP Server (Daemon)                    │
+│  Port: 8080 (localhost) / Unix socket                             │
+│                                                                  │
+│  ┌──────────────┐     ┌────────────────────────────────────┐    │
+│  │ FS Watcher   │────▶│  Ingestion Pipeline (512K ctx LLM) │    │
+│  │ (watch dirs)  │     │  LLM: chunk boundaries + edges     │    │
+│  └──────────────┘     │  + outcome tags per chunk          │    │
+│                       └──────────────┬───────────────────┘    │
+│         session file = new session   │                        │
+│                       ┌──────────────▼───────────────────┐    │
+│                       │  Neo4j (Graph Index)             │    │
+│                       │  - nodes: chunks                 │    │
+│                       │  - edges: cross-chunk relations  │    │
+│                       │  - props: tags, page_order, etc  │    │
+│                       └──────────────┬───────────────────┘    │
+│                       ┌──────────────▼───────────────────┐    │
+│                       │  Qdrant (Vector Index)           │    │
+│                       │  - chunk embeddings              │    │
+│                       │  - metadata: tags, session, etc  │    │
+│                       └──────────────┬───────────────────┘    │
+│                       ┌──────────────▼───────────────────┐    │
+│                       │  Ollama (Intent Detector)         │    │
+│                       │  100-200M model (local)          │    │
+│                       │  maps prompt → detected tags     │    │
+│                       │  ─────────────────────────────  │    │
+│                       │  Anthropic API (Chunking LLM)   │    │
+│                       │  512K ctx, user-provided key    │    │
+│                       │  ─────────────────────────────  │    │
+│                       │  Gemini (Tag-sort, if available)│    │
+│                       │  user-provided key, fallback     │    │
+│                       └──────────────┬───────────────────┘    │
+│                       ┌──────────────▼───────────────────┐    │
+│                       │  Tag-Aware Retrieval Engine      │    │
+│                       │  priority = (tag_match × weight)│    │
+│                       │        + recency_boost          │    │
+│                       │        + outcome_priority        │    │
+│                       └──────────────┬───────────────────┘    │
+└──────────────────────────────────────┼───────────────────────┘
+                                       │
+                              MCP Tool: mneme_inject
+                              ┌────────▼────────┐
+                              │  Pre-Tool Hook  │
+                              │  (Claude Code)  │
+                              │  Proactive:     │
+                              │  fires before   │
+                              │  every API call │
+                              └─────────────────┘
+```
+
+---
+
+## Data Models
+
+### Memory Chunk
+```python
+class MemoryChunk:
+    chunk_id: str              # e.g., "mem_001"
+    session_id: str           # conversation file path
+    project_root: str         # git repo root
+
+    content: str               # the actual chunk text
+    page_order: int            # position within source file (page index)
+
+    tags: list[str]            # e.g., ["tool=auth", "outcome=failed", "error=token_expired"]
+    tag_tree: dict             # parsed tag hierarchy: {"tool": "auth", "outcome": "failed"}
+
+    linked_chunks: list[str]   # graph edges (cross-chunk relationships)
+
+    outcome_tag: str           # "work_done" | "no_tool_called" | "successfully_called" | "failed" | "stopped"
+    source_file: str           # absolute path of source file
+    created_at: datetime
+    last_accessed: datetime
+```
+
+### Graph Edge
+```python
+class ChunkRelationship:
+    source_chunk_id: str
+    target_chunk_id: str
+    relationship_type: str     # "same_tool_call" | "prerequisite" | "follows" | "contradicts" | "same_concept"
+    reason: str                # LLM-provided explanation
+```
+
+### Tag Tree (generated per chunk by LLM)
+```
+Level 1 (category):  tool | memory | skill | context
+Level 2 (entity):    auth | db | http | file_io | ...
+Level 3 (outcome):   failed | successfully_called | no_tool_called | stopped
+Level 4 (error):     token_expired | timeout | auth_rejected | ...
+```
+
+### Outcome Priority (retrieval weighting)
+```python
+OUTCOME_PRIORITY = {
+    "failed": 1.0,              # highest — these are the most actionable
+    "stopped": 0.8,
+    "work_done": 0.6,
+    "successfully_called": 0.4,
+    "no_tool_called": 0.2,
+}
+```
+
+---
+
+## Phase 1 — Core Memory Store ✅ DONE
+**Foundation: the data model and CRUD. No RAG yet.**
+
+**Done signal:** ✅ Verified 2026-06-15 — `uv run pytest tests/test_memory_store.py` → 16/16 PASS
+
+```
+$ curl http://localhost:8080/memories/mem_001
+→ [MOCK] {
+  "chunk_id": "mem_001",
+  "content": "Auth flow failed at token_refresh — error: token_expired at src/auth/login.py:42",
+  "tags": ["tool=auth", "outcome=failed", "error=token_expired"],
+  "tag_tree": {"tool": "auth", "outcome": "failed", "error": "token_expired"},
+  "source_file": "src/auth/login.py",
+  "page_order": 3,
+  "session_id": "/Users/abhinav/chat/sessions/2024-03-15-auth-flow.md",
+  "project_root": "/Users/abhinav/git/myproject",
+  "linked_chunks": ["mem_007", "mem_012"],
+  "outcome_tag": "failed",
+  "created_at": "2024-03-15T10:00:00Z",
+  "last_accessed": null
+}
+→ [MOCK LABEL] swap → real Neo4j call in memory_store/repository.py
+```
+
+**Phase 1 acceptance criteria:**
+- [x] MemoryChunk model defined in `src/models.py`
+- [x] ChunkRelationship model defined
+- [x] CRUD API: `POST /memories`, `GET /memories/{id}`, `PATCH /memories/{id}/tags`, `GET /memories?tag=X&session=Y`
+- [x] Mock prints correct JSON structure; real Neo4j path documented per endpoint
+- [x] Tests: 16 tests, all passing (see TEST_DOCUMENTATION.md)
+
+---
+
+## Phase 2 — LLM-Assisted Ingestion Pipeline
+**Given files → LLM parses 512K context → chunk boundaries + cross-chunk edges + tags.**
+
+**Done signal:**
+```
+$ curl -X POST http://localhost:8080/ingest \
+  -d '{"file_paths": ["src/auth/*.py", "tests/auth/*.py"]}'
+→ [MOCK] {
+  "chunks_created": 47,
+  "edges_created": 12,
+  "session_id": "sessions/2024-03-15-auth-flow.md",
+  "tag_tree_summary": {
+    "tool=auth": {"failed": 5, "successfully_called": 31, "no_tool_called": 11},
+    "tool=db":   {"failed": 2, "successfully_called": 8, "stopped": 1}
+  },
+  "chunks": [
+    { "id": "mem_001", "content": "...", "tags": ["tool=auth","outcome=failed"],
+      "linked_chunks": ["mem_007"], "page_order": 3 },
+    ...
+  ]
+}
+→ [MOCK LABEL] swap → real Anthropic API call in ingestion/llm_chunker.py (Ollama fallback if API fails)
+```
+
+**Phase 2 acceptance criteria:**
+- [x] Ingestion manifest schema defined (see `src/ingestion/llm_client.py::ChunkingResult`)
+- [x] LLM prompt for chunking+linking+tagging written (single 512K-context pass)
+- [x] Chunk boundaries respect semantic units (function, class, test case — not arbitrary token splits)
+- [x] Cross-chunk edges generated with relationship_type + reason
+- [x] Outcome tags assigned per chunk (work_done/successfully_called/failed/stopped/no_tool_called)
+- [x] MockIngestionPipeline returns correct structure; real path documented per method
+- [x] Tests: 12 tests covering mock pipeline + endpoint (see tests/test_ingestion.py)
+
+---
+
+## Phase 3 — Graph Index (Neo4j)
+**Graph of cross-chunk relationships. Queryable: "what's related to this chunk?"**
+
+**Done signal:**
+```
+$ curl http://localhost:8080/graph/related/mem_001
+→ [MOCK] {
+  "chunk_id": "mem_001",
+  "relationships": [
+    { "chunk_id": "mem_007", "type": "same_tool_call",
+      "reason": "Both deal with token refresh in auth flow — same OAuth endpoint" },
+    { "chunk_id": "mem_012", "type": "prerequisite",
+      "reason": "mem_012 sets up the auth token that mem_001 tried to use and failed" }
+  ]
+}
+→ [MOCK LABEL] swap → real Neo4j traversal in graph/index.py
+```
+
+**Phase 3 acceptance criteria:**
+- [x] Graph edge schema: (source, target, relationship_type, reason)
+- [x] Graph query API: `GET /graph/related/{chunk_id}`, `GET /graph/chains/{chunk_id}?depth=3`
+- [x] MockGraphIndex returns correct structure; real Neo4j path documented per method
+- [x] Tests: 17 tests covering mock graph + both endpoints (see tests/test_graph.py)
+
+---
+
+## Phase 4 — Tag-Aware Retrieval Engine
+**Given prompt context + detected intent → retrieve memories filtered by tag priority.**
+
+**Done signal:**
+```
+$ curl -X POST http://localhost:8080/retrieve \
+  -d '{"prompt_context": "请继续修复auth flow，上次你停在token refresh这里",
+       "session_id": "sessions/2024-03-15-auth-flow.md"}'
+→ [MOCK] {
+  "detected_tags": ["outcome=failed", "tool=auth", "error=token_expired"],
+  "intent": "continue_auth_flow_retry",
+  "injected_context": "Relevant memory from last session:\n"
+    "[mem_001] Auth flow failed at token_refresh — error: token_expired. "
+    "You tried fixing it by adding retry logic but stopped at line 42.\n"
+    "[mem_007] Related: same tool call (auth) — successfully called after applying the fix.",
+  "chunks_used": ["mem_001", "mem_007"],
+  "tag_matches": {"outcome=failed": "exact", "tool=auth": "exact", "error=token_expired": "partial"},
+  "priority_scores": {"mem_001": 0.94, "mem_007": 0.71}
+}
+→ [MOCK LABEL] swap → Ollama intent detection + Qdrant search (+ Gemini tag-sort attempt if key provided)
+```
+
+**Phase 4 acceptance criteria:**
+- [ ] Intent detection: Ollama 100-200M local (primary), maps prompt → detected tags + intent label
+- [ ] Priority scoring formula: `(tag_match_score × OUTCOME_PRIORITY[outcome_tag]) + recency_boost`
+- [ ] Recency boost: memories accessed in last 7 days get +0.1 boost
+- [ ] Mock prints correct structure; real Ollama (intent) + Qdrant (search) + Gemini (tag-sort) path documented
+- [ ] Tests: retrieve with various intents, verify failed chunks rank higher than successful ones
+
+---
+
+## Phase 5 — Memory Guard (Diff Against Memory)
+**Before AI writes code that contradicts a past failed attempt → warn.**
+
+**Done signal:**
+```
+$ curl -X POST http://localhost:8080/guard \
+  -d '{"proposed_change": "rewrite auth/token.py to use JWT instead of session cookies",
+       "target_file": "auth/token.py",
+       "session_id": "sessions/2024-03-15-auth-flow.md"}'
+→ [MOCK] {
+  "guard_triggered": true,
+  "warning": "You tried JWT in auth/token.py in session sessions/2024-03-10 and it "
+    "failed: JWT library was incompatible with the existing session middleware. "
+    "mem_042 (failed, tool=auth, error=incompatible_library). "
+    "Are you sure you want to retry?",
+  "related_memories": ["mem_042"],
+  "override_allowed": true
+}
+→ [MOCK LABEL] swap → real Neo4j "contradicts" edge lookup + Qdrant semantic check + Ollama intent detection
+```
+
+**Phase 5 acceptance criteria:**
+- [ ] "contradicts" relationship lookup in graph (past failed attempts at same goal)
+- [ ] Semantic similarity check: proposed change vs past failed chunk content
+- [ ] Warning returned with memory context + `override_allowed: true` (AI can proceed)
+- [ ] Mock fires correctly; real path documented
+
+---
+
+## Phase 6 — Pre-Tool Hook (MCP Interface)
+**The MCP tool that wraps everything. Fires proactively before every outbound API call.**
+
+**Done signal:**
+```
+$ mneme_inject("请继续修复auth flow")
+→ [Mneme] Pre-tool hook fired
+  Session: sessions/2024-03-15-auth-flow.md
+  Detected intent: continue_auth_flow_retry
+  Retrieved 2 chunks (1 failed, 1 success)
+  Memory guard: PASSED (no contradicting failed attempts)
+  Injected context length: 847 chars
+  → [MEM_001] Auth flow failed at token_refresh...
+  → [MEM_007] Same tool call — successfully called after...
+→ [MOCK LABEL] This is where real MCP tool hook fires (Claude Code integration)
+```
+
+**Phase 6 acceptance criteria:**
+- [ ] MCP tool definition: `mneme_inject(message: string, session_id?: string)`
+- [ ] Calls Phase 4 retrieval + Phase 5 guard in sequence
+- [ ] Output clearly labeled `[MOCK]` until real implementation
+- [ ] MCP tool registration for Claude Code (tool hook)
+- [ ] Tests: full injection flow with mock → correct output structure
+
+---
+
+## Critical Files (to be created)
+
+```
+/Users/abhinavnehra/git/Mneme/
+├── SPEC.md                              # This spec
+├── src/
+│   ├── __init__.py
+│   ├── models.py                        # MemoryChunk, ChunkRelationship, TagTree
+│   ├── config.py                        # LLM API keys + provider config
+│   ├── server.py                        # FastAPI HTTP server (Phases 1-6)
+│   ├── memory_store/
+│   │   ├── __init__.py
+│   │   ├── repository.py                # Neo4j CRUD operations
+│   │   └── mock_repository.py          # Phase 1 mock [MOCK]
+│   ├── ingestion/
+│   │   ├── __init__.py
+│   │   ├── pipeline.py                 # Ingestion orchestration
+│   │   ├── llm_chunker.py              # LLM chunking + linking + tagging
+│   │   └── mock_ingestion.py           # Phase 2 mock [MOCK]
+│   ├── graph/
+│   │   ├── __init__.py
+│   │   ├── index.py                    # Neo4j graph operations
+│   │   └── mock_graph.py               # Phase 3 mock [MOCK]
+│   ├── retrieval/
+│   │   ├── __init__.py
+│   │   ├── engine.py                   # Tag-aware retrieval + priority scoring
+│   │   ├── intent_detector.py           # Ollama intent/tag detection
+│   │   └── mock_retrieval.py           # Phase 4 mock [MOCK]
+│   ├── guard/
+│   │   ├── __init__.py
+│   │   ├── diff_engine.py              # "contradicts" lookup + semantic check
+│   │   └── mock_guard.py               # Phase 5 mock [MOCK]
+│   └── hook/
+│       ├── __init__.py
+│       ├── mcp_tool.py                  # MCP tool definition
+│       └── mock_hook.py                 # Phase 6 mock [MOCK]
+├── tests/
+│   ├── test_memory_store.py
+│   ├── test_ingestion.py
+│   ├── test_graph.py
+│   ├── test_retrieval.py
+│   ├── test_guard.py
+│   └── test_hook.py
+└── pyproject.toml
+```
+
+---
+
+## MOCK Implementation Pattern
+
+Every mock follows this pattern:
+```python
+def get_memory(chunk_id: str) -> dict:
+    """
+    [MOCK] Returns a mock memory record.
+    Real implementation → memory_store/repository.py::Neo4jMemoryRepository.get()
+    """
+    return {
+        "_mock": True,
+        "chunk_id": chunk_id,
+        "content": "[MOCK] Auth flow failed — token_expired",
+        "tags": ["tool=auth", "outcome=failed"],
+        # ... full structure matching real return type
+    }
+```
+
+Mock functions are in `mock_*.py` files. Real implementations go in `*.py`. Each mock clearly labels:
+- `_mock: True` field
+- docstring pointing to exact real implementation path
+- `[MOCK]` prefix in any print output
+
+Phase is "done" when: mock fires correctly AND real path is documented in docstring AND tests pass.
+
+---
+
+## Verification Plan
+
+| Phase | Verification |
+|---|---|
+| Phase 1 | `curl http://localhost:8080/memories/mem_001` → mock JSON with correct schema |
+| Phase 2 | `POST /ingest` with a Python file → correct chunk count + edges + tags |
+| Phase 3 | `GET /graph/related/mem_001` → 2 related chunks with correct relationship types |
+| Phase 4 | `POST /retrieve` with auth flow prompt → failed chunk ranked first |
+| Phase 5 | `POST /guard` with contradicting change → warning with related memory ID |
+| Phase 6 | `mneme_inject(...)` → full output with `[Mneme]` prefix and all metadata |
+
+---
+
+## Open Questions (resolved)
+
+| Question | Answer |
+|---|---|
+| Storage backend? | Neo4j (graph) + Qdrant (vector), both local |
+| Source directory? | `/git/Mneme` |
+| First phase? | Phase 1: Memory Store |
+| Hook mode? | Proactive before every API call + manual |
+| Memory guard? | Yes — block/warn before contradicting failed attempts |
+| Namespace? | Project root + session file path |
+| LLM strategy? | Anthropic API (chunking) → Gemini (tag-sort) → Ollama local (intent) |
+| Watcher type? | FS events |
+| Memory TTL? | Never expire / manual delete |
+| Process model? | HTTP server (background daemon) |
+| Session model? | File-based — `/new` in AI chat = new conversation file = new session |
+
+===== FILE: src/graph/__init__.py =====
+"""Graph module — cross-chunk relationship index."""
+from __future__ import annotations
+
+from src.graph.index import GraphIndex
+
+__all__ = ["GraphIndex"]
+
+===== FILE: src/graph/index.py =====
+"""
+Graph Index — cross-chunk relationship traversal via Neo4j.
+Real implementation: uses Neo4j driver for graph traversal queries.
+Mock is in mock_graph.py.
+"""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.memory_store import MemoryRepository
+
+
+class GraphIndex:
+    """
+    Cross-chunk relationship traversal.
+
+    Wraps MemoryRepository graph methods with:
+    - get_related(chunk_id, depth): direct edges at given depth
+    - get_chains(chunk_id, depth): multi-hop traversal chains
+
+    [MOCK] Currently uses MockGraphIndex. Pass use_mock=False to use
+    the real Neo4j-backed implementation.
+    """
+
+    def __init__(
+        self,
+        repository: MemoryRepository | None = None,
+        use_mock: bool = False,
+    ) -> None:
+        self._repo = repository
+        self._use_mock = use_mock
+
+    def get_related(
+        self,
+        chunk_id: str,
+        depth: int = 1,
+    ) -> dict[str, Any]:
+        """
+        Get chunks related to this chunk_id up to `depth` hops.
+
+        Returns a dict with:
+          - chunk_id: the source chunk
+          - relationships: list of {chunk_id, type, reason}
+        """
+        if self._use_mock:
+            from src.graph.mock_graph import MockGraphIndex
+
+            return MockGraphIndex().get_related(chunk_id=chunk_id, depth=depth)
+
+        related = self._repo.get_related_chunks(chunk_id=chunk_id, depth=depth)
+        return {
+            "chunk_id": chunk_id,
+            "relationships": [
+                {
+                    "chunk_id": r["chunk_id"],
+                    "type": r["type"],
+                    "reason": r["reason"],
+                }
+                for r in related
+            ],
+        }
+
+    def get_chains(
+        self,
+        chunk_id: str,
+        depth: int = 3,
+    ) -> dict[str, Any]:
+        """
+        Get multi-hop traversal chains from this chunk_id.
+
+        Returns a dict with:
+          - chunk_id: the source chunk
+          - depth: requested depth
+          - chains: list of {path: [chunk_ids], relationship_types: [...], reason}
+        """
+        if self._use_mock:
+            from src.graph.mock_graph import MockGraphIndex
+
+            return MockGraphIndex().get_chains(chunk_id=chunk_id, depth=depth)
+
+        # Real Neo4j implementation:
+        # Uses Cypher variable-length path pattern:
+        # MATCH (start {chunk_id: $chunk_id})-[*1..$depth]-(related)
+        # RETURN relationships between each hop
+        #
+        # from neo4j import GraphDatabase
+        # with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)) as driver:
+        #     with driver.session() as session:
+        #         result = session.run("""
+        #             MATCH path = (c {chunk_id: $chunk_id})-[*1..$depth]-(related)
+        #             WHERE c.chunk_id = $chunk_id
+        #             UNWIND relationships(path) AS rel
+        #             RETURN DISTINCT related.chunk_id AS chunk_id,
+        #                    type(rel) AS rel_type,
+        #                    rel.reason AS reason
+        #         """, chunk_id=chunk_id, depth=depth)
+        #         ...
+        #
+        # For now, fall back to iterative depth traversal via repo
+        chains: list[dict[str, Any]] = []
+        visited_paths: set[tuple[str, ...]] = set()
+
+        def _traverse(current_id: str, remaining_depth: int, path: list[str]) -> None:
+            if remaining_depth == 0:
+                return
+            related = self._repo.get_related_chunks(current_id, depth=1)
+            for r in related:
+                next_id = r["chunk_id"]
+                if next_id in path:
+                    continue
+                new_path = path + [next_id]
+                path_key = tuple(new_path)
+                if path_key in visited_paths:
+                    continue
+                visited_paths.add(path_key)
+                if len(new_path) > 1:
+                    chains.append({
+                        "path": new_path,
+                        "relationship_types": [r["type"]],
+                        "reason": r["reason"],
+                    })
+                if len(new_path) <= depth:
+                    _traverse(next_id, remaining_depth - 1, new_path)
+
+        _traverse(chunk_id, depth, [chunk_id])
+
+        return {
+            "chunk_id": chunk_id,
+            "depth": depth,
+            "chains": chains,
+        }
+
+===== FILE: src/graph/mock_graph.py =====
+"""
+[MOCK] Mock Graph Index — returns deterministic mock relationships.
+Phase 3 is "done" when this mock fires AND the real Neo4j path is documented.
+Real implementation → graph/index.py::GraphIndex
+"""
+from __future__ import annotations
+
+from typing import Any
+
+
+class MockGraphIndex:
+    """
+    [MOCK] Returns deterministic mock relationships for Phase 3 verification.
+    Uses the same interface as GraphIndex.
+    """
+
+    def get_related(
+        self,
+        chunk_id: str,
+        depth: int = 1,
+    ) -> dict[str, Any]:
+        """
+        [MOCK] Return mock related chunks for any chunk_id.
+        Real implementation → graph/index.py::GraphIndex.get_related()
+        """
+        return {
+            "_mock": True,
+            "chunk_id": chunk_id,
+            "relationships": [
+                {
+                    "chunk_id": "mem_007",
+                    "type": "same_tool_call",
+                    "reason": (
+                        "Both deal with token refresh in auth flow — "
+                        "same OAuth endpoint"
+                    ),
+                },
+                {
+                    "chunk_id": "mem_012",
+                    "type": "prerequisite",
+                    "reason": (
+                        "mem_012 sets up the auth token that mem_001 "
+                        "tried to use and failed"
+                    ),
+                },
+            ],
+            "_implementation_note": (
+                "Real: graph/index.py::GraphIndex.get_related() — "
+                "queries Neo4j for edges from this chunk_id"
+            ),
+        }
+
+    def get_chains(
+        self,
+        chunk_id: str,
+        depth: int = 3,
+    ) -> dict[str, Any]:
+        """
+        [MOCK] Return mock multi-hop chains for any chunk_id.
+        Real implementation → graph/index.py::GraphIndex.get_chains()
+        """
+        return {
+            "_mock": True,
+            "chunk_id": chunk_id,
+            "depth": depth,
+            "chains": [
+                {
+                    "path": ["mem_001", "mem_007", "mem_015"],
+                    "relationship_types": ["same_tool_call", "prerequisite"],
+                    "reason": "Auth retry chain: failed → fixed → verified",
+                },
+                {
+                    "path": ["mem_001", "mem_012"],
+                    "relationship_types": ["prerequisite"],
+                    "reason": "mem_012 sets up the token that mem_001 consumed",
+                },
+            ],
+            "_implementation_note": (
+                "Real: graph/index.py::GraphIndex.get_chains() — "
+                "Neo4j variable-length path traversal"
+            ),
+        }
+
+===== FILE: tests/test_graph.py =====
+"""
+Tests for the graph index (Phase 3).
+
+Verifies:
+- GraphIndex.get_related() produces correct manifest structure
+- GraphIndex.get_chains() produces correct manifest structure
+- MockGraphIndex returns deterministic mock data
+- GET /graph/related/{id} and GET /graph/chains/{id} endpoints
+"""
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+from src.graph.index import GraphIndex
+from src.graph.mock_graph import MockGraphIndex
+from src.server import app
+
+
+class TestMockGraphIndex:
+    """Unit tests for MockGraphIndex."""
+
+    def test_get_related_returns_required_keys(self):
+        """get_related must return _mock, chunk_id, relationships."""
+        mock = MockGraphIndex()
+        result = mock.get_related(chunk_id="mem_001", depth=1)
+
+        assert result["_mock"] is True
+        assert result["chunk_id"] == "mem_001"
+        assert "relationships" in result
+        assert isinstance(result["relationships"], list)
+
+    def test_get_related_relationships_have_required_fields(self):
+        """Each relationship must have chunk_id, type, reason."""
+        mock = MockGraphIndex()
+        result = mock.get_related(chunk_id="mem_001", depth=1)
+
+        for rel in result["relationships"]:
+            assert "chunk_id" in rel
+            assert "type" in rel
+            assert "reason" in rel
+
+    def test_get_related_implementation_note_present(self):
+        """_implementation_note must document the real path."""
+        mock = MockGraphIndex()
+        result = mock.get_related(chunk_id="mem_001", depth=1)
+        assert "_implementation_note" in result
+        assert "graph/index.py::GraphIndex.get_related()" in result["_implementation_note"]
+
+    def test_get_chains_returns_required_keys(self):
+        """get_chains must return _mock, chunk_id, depth, chains."""
+        mock = MockGraphIndex()
+        result = mock.get_chains(chunk_id="mem_001", depth=3)
+
+        assert result["_mock"] is True
+        assert result["chunk_id"] == "mem_001"
+        assert result["depth"] == 3
+        assert "chains" in result
+        assert isinstance(result["chains"], list)
+
+    def test_get_chains_paths_are_lists_of_chunk_ids(self):
+        """Each chain path must be a list of chunk_id strings."""
+        mock = MockGraphIndex()
+        result = mock.get_chains(chunk_id="mem_001", depth=3)
+
+        for chain in result["chains"]:
+            assert isinstance(chain["path"], list)
+            for item in chain["path"]:
+                assert isinstance(item, str)
+            assert "relationship_types" in chain
+            assert "reason" in chain
+
+    def test_get_chains_implementation_note_present(self):
+        """_implementation_note must document the real path."""
+        mock = MockGraphIndex()
+        result = mock.get_chains(chunk_id="mem_001", depth=3)
+        assert "_implementation_note" in result
+        assert "graph/index.py::GraphIndex.get_chains()" in result["_implementation_note"]
+
+
+class TestGraphIndex:
+    """Unit tests for GraphIndex with use_mock=True."""
+
+    def test_get_related_with_mock_returns_mock_result(self):
+        """use_mock=True must delegate to MockGraphIndex."""
+        index = GraphIndex(use_mock=True)
+        result = index.get_related(chunk_id="mem_001", depth=1)
+        assert result["_mock"] is True
+
+    def test_get_related_passes_chunk_id_to_mock(self):
+        """chunk_id must be forwarded to the mock."""
+        index = GraphIndex(use_mock=True)
+        result = index.get_related(chunk_id="mem_042", depth=2)
+        assert result["chunk_id"] == "mem_042"
+
+    def test_get_chains_with_mock_returns_mock_result(self):
+        """use_mock=True must delegate to MockGraphIndex for chains too."""
+        index = GraphIndex(use_mock=True)
+        result = index.get_chains(chunk_id="mem_001", depth=3)
+        assert result["_mock"] is True
+
+
+class TestGraphEndpoints:
+    """Integration tests for graph API endpoints."""
+
+    @pytest.fixture
+    def client(self) -> TestClient:
+        return TestClient(app)
+
+    def test_related_returns_200(self, client: TestClient):
+        """GET /graph/related/{id} must respond 200."""
+        response = client.get("/graph/related/mem_001")
+        assert response.status_code == 200
+
+    def test_related_returns_mock_manifest(self, client: TestClient):
+        """Response must be a valid mock manifest with all required fields."""
+        response = client.get("/graph/related/mem_001")
+        data = response.json()
+
+        assert data["_mock"] is True
+        assert "chunk_id" in data
+        assert "relationships" in data
+        assert isinstance(data["relationships"], list)
+
+    def test_related_depth_param_passed(self, client: TestClient):
+        """depth query param must be accepted without error."""
+        response = client.get("/graph/related/mem_001?depth=3")
+        assert response.status_code == 200
+
+    def test_related_relationships_have_required_fields(self, client: TestClient):
+        """Each relationship in the response must have chunk_id, type, reason."""
+        response = client.get("/graph/related/mem_001")
+        data = response.json()
+
+        for rel in data["relationships"]:
+            assert "chunk_id" in rel
+            assert "type" in rel
+            assert "reason" in rel
+
+    def test_chains_returns_200(self, client: TestClient):
+        """GET /graph/chains/{id} must respond 200."""
+        response = client.get("/graph/chains/mem_001")
+        assert response.status_code == 200
+
+    def test_chains_returns_mock_manifest(self, client: TestClient):
+        """Response must be a valid mock manifest with all required fields."""
+        response = client.get("/graph/chains/mem_001")
+        data = response.json()
+
+        assert data["_mock"] is True
+        assert "chunk_id" in data
+        assert "depth" in data
+        assert "chains" in data
+        assert isinstance(data["chains"], list)
+
+    def test_chains_depth_param_passed(self, client: TestClient):
+        """depth query param must be accepted without error."""
+        response = client.get("/graph/chains/mem_001?depth=4")
+        assert response.status_code == 200
+
+    def test_chains_paths_are_list_of_strings(self, client: TestClient):
+        """Each chain path must be a list of chunk_id strings."""
+        response = client.get("/graph/chains/mem_001")
+        data = response.json()
+
+        for chain in data["chains"]:
+            assert isinstance(chain["path"], list)
+            for item in chain["path"]:
+                assert isinstance(item, str)
+

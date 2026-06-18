@@ -1,7 +1,9 @@
 """
-[MOCK] Intent Detector — maps prompt → detected tags + intent label.
-Phase 4 uses Ollama 100-200M local model for intent detection.
-Real implementation → retrieval/intent_detector.py::IntentDetector
+Intent Detector — maps prompt → detected tags + intent label.
+
+Uses simple keyword-based heuristics to extract tags and intent from a
+user prompt. For higher-quality detection, swap in BitNetClient-based
+real inference (see _detect_real below) once the BitNet server is running.
 """
 from __future__ import annotations
 
@@ -37,17 +39,32 @@ INTENT_KEYWORDS = {
 
 class IntentDetector:
     """
-    [MOCK] Detects intent and tags from a user prompt.
+    Detects intent and tags from a user prompt.
 
-    Uses simple keyword matching for Phase 4 mock.
-    Real implementation uses Ollama 100-200M local model:
-        ollama chat model --prompt <prompt> → structured JSON {intent, tags}
+    Uses simple keyword matching. The real implementation uses BitNet
+    (Microsoft's 1-bit inference framework) with Falcon3-1B-Instruct
+    from HuggingFace:
+        # BitNet runs locally via llama-server (llama.cpp fork)
+        # Model: tiiuae/Falcon3-1B-Instruct-1.58bit (I2_S, ~1.3GB)
+        # Key: prompts MUST use Falcon3 chat template (<|user|>/<|assistant|>)
+        #   Without it the pre-tokenizer produces gibberish.
+        #   With proper template, even I2_S produces coherent output.
+        result = client.detect_intent(prompt_context)
+        # Expected real response shape:
+        # {"intent": "<intent_label>", "detected_tags": ["outcome=failed", "tool=auth", ...]}
     """
+
+    def __init__(self) -> None:
+        """Initialize IntentDetector using keyword-based detection."""
 
     def detect(self, prompt_context: str) -> dict[str, Any]:
         """
-        [MOCK] Detect intent and tags from prompt text.
-        Real implementation → Ollama 100-200M local inference.
+        Detect intent and tags from a user prompt.
+
+        Returns a dict with:
+          - intent: intent label (e.g. "continue_previous_work", "retry_previous_attempt")
+          - detected_tags: list of flat tags (e.g. ["outcome=failed", "tool=auth"])
+          - source: "keyword" (always; swap with BitNet later)
         """
         prompt_lower = prompt_context.lower()
         detected_tags: list[str] = []
@@ -89,11 +106,7 @@ class IntentDetector:
                 intent = "retry_previous_attempt"
 
         return {
-            "_mock": True,
             "intent": intent,
             "detected_tags": detected_tags,
-            "_implementation_note": (
-                "Real: retrieval/intent_detector.py::IntentDetector — "
-                "Ollama 100-200M local model inference"
-            ),
+            "source": "keyword",
         }

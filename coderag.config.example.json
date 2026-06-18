@@ -1,0 +1,45 @@
+{
+  "repoPath": "/path/to/your/repo",
+  "storageRoot": ".coderag",
+  "embedding": {
+    "provider": "onnx",
+    "dimensions": 384,
+    "geminiModel": "models/gemini-embedding-2",
+    "timeoutMs": 30000,
+    "onnxModelDir": ".coderag-models/models"
+  },
+  "retrieval": {
+    "topK": 6,
+    "rerankK": 3,
+    "maxContextChars": 16000
+  },
+  "multiHop": {
+    "enabled": false,
+    "minQuestionLength": 25,
+    "maxSubQuestions": 5,
+    "expansionDepth": 1
+  },
+  "traversal": {
+    "defaultDepth": 1,
+    "maxDepth": 3
+  },
+  "locking": {
+    "timeoutMs": 30000,
+    "pollMs": 150,
+    "staleMs": 300000
+  },
+  "service": {
+    "host": "127.0.0.1",
+    "port": 4119
+  },
+  "llm": {
+    "enabled": true,
+    "transport": "openai-compatible",
+    "baseUrl": "https://api.minimax.io/v1",
+    "model": "Minimax-M3",
+    "apiKey": "your_minimax_api_key_here",
+    "timeoutMs": 45000,
+    "customHttpFormat": "json",
+    "headers": {}
+  }
+}

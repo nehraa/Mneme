@@ -7,12 +7,12 @@
 2. Links chunks both linearly (page index per file) and across files (graph index via LLM-identified relationships)
 3. Tags each chunk with outcome metadata: `work_done / no_tool_called / successfully_called / failed / stopped`
 4. On every AI agent prompt (proactively, before every outbound API call), fires a pre-tool hook that detects intent/tags from the incoming context, runs LLM-assisted retrieval filtered by tag priority, and injects relevant memory chunks into the context
-5. LLM strategy (three-tier): Anthropic-compatible API (user provides key) for chunking + boundary definition; Gemini (user provides key, tried first) for tag sorting during retrieval with Ollama 100-200M local fallback; Ollama 100-200M for intent detection (local, offline)
+5. LLM strategy (three-tier): Anthropic-compatible API (user provides key) for chunking + boundary definition; Gemini (user provides key, tried first) for tag sorting during retrieval with BitNet 1.58-bit (llama-server, OpenAI-compatible HTTP API, local) fallback; BitNet 1.58-bit (llama-server, OpenAI-compatible HTTP API, local) for intent detection
 6. Has a "diff against memory" guard: warns before writing code that contradicts a past failed attempt
 
 **Why:** The user wants an AI agent that remembers past work — what failed, what succeeded, what was tried — and surfaces it proactively in every new session, with a session boundary managed by `/new` (new conversation file = new session).
 
-**Architecture:** HTTP server (background daemon) + MCP tool that wraps retrieval. FS events for file watching. Neo4j for graph index + cross-chunk relationships. Qdrant for vector search. Three-tier LLM strategy: Anthropic-compatible API for chunking (user provides key); Gemini for tag-sorting during retrieval (user provides key, fallback to Ollama local); Ollama 100-200M local for intent detection. No TTL — memories persist until manually deleted.
+**Architecture:** HTTP server (background daemon) + MCP tool that wraps retrieval. FS events for file watching. Neo4j for graph index + cross-chunk relationships. Qdrant for vector search. Three-tier LLM strategy: Anthropic-compatible API for chunking (user provides key); Gemini for tag-sorting during retrieval (user provides key, fallback to BitNet 1.58-bit local); BitNet 1.58-bit (llama-server, OpenAI-compatible HTTP API, local) for intent detection. No TTL — memories persist until manually deleted.
 
 ---
 
@@ -22,7 +22,7 @@
 |---|---|
 | Graph index | Neo4j (local) |
 | Vector search | Qdrant (local) |
-| LLM strategy | Anthropic API (chunking, user key) → Gemini (tag-sort, user key) → Ollama 100-200M local (intent detection) |
+| LLM strategy | Anthropic API (chunking, user key) → Gemini (tag-sort, user key) → BitNet 1.58-bit local (intent detection) |
 | Process model | HTTP server (background daemon) |
 | Session boundary | File-based — `/new` creates a new conversation file, that's the session ID |
 | File watcher | FS events (filesystem watchers) |
@@ -60,8 +60,9 @@
 │                       │  - metadata: tags, session, etc  │    │
 │                       └──────────────┬───────────────────┘    │
 │                       ┌──────────────▼───────────────────┐    │
-│                       │  Ollama (Intent Detector)         │    │
-│                       │  100-200M model (local)          │    │
+│                       │  BitNet (Intent Detector)         │    │
+│                       │  1.58-bit, llama-server, local   │    │
+│                       │  OpenAI-compatible HTTP API      │    │
 │                       │  maps prompt → detected tags     │    │
 │                       │  ─────────────────────────────  │    │
 │                       │  Anthropic API (Chunking LLM)   │    │
@@ -197,7 +198,7 @@ $ curl -X POST http://localhost:8080/ingest \
     ...
   ]
 }
-→ [MOCK LABEL] swap → real Anthropic API call in ingestion/llm_chunker.py (Ollama fallback if API fails)
+→ [MOCK LABEL] swap → real Anthropic API call in ingestion/llm_chunker.py (BitNet fallback if API fails)
 ```
 
 **Phase 2 acceptance criteria:**
@@ -256,14 +257,14 @@ $ curl -X POST http://localhost:8080/retrieve \
   "tag_matches": {"outcome=failed": "exact", "tool=auth": "exact", "error=token_expired": "partial"},
   "priority_scores": {"mem_001": 0.94, "mem_007": 0.71}
 }
-→ [MOCK LABEL] swap → Ollama intent detection + Qdrant search (+ Gemini tag-sort attempt if key provided)
+→ [MOCK LABEL] swap → BitNet intent detection + Qdrant search (+ Gemini tag-sort attempt if key provided)
 ```
 
 **Phase 4 acceptance criteria:**
-- [x] Intent detection: IntentDetector maps prompt → detected tags + intent label (Ollama path documented)
+- [x] Intent detection: IntentDetector maps prompt → detected tags + intent label (BitNet path documented)
 - [x] Priority scoring formula: `(tag_match_score × OUTCOME_PRIORITY[outcome_tag]) + recency_boost` implemented
 - [x] Recency boost: memories accessed in last 7 days get +0.1 boost
-- [x] MockRetrievalEngine returns correct structure; real Ollama + Qdrant + Gemini path documented
+- [x] MockRetrievalEngine returns correct structure; real BitNet + Qdrant + Gemini path documented
 - [x] Tests: 18 tests covering intent detection, priority scoring, endpoint (see tests/test_retrieval.py)
 
 ---
@@ -286,7 +287,7 @@ $ curl -X POST http://localhost:8080/guard \
   "related_memories": ["mem_042"],
   "override_allowed": true
 }
-→ [MOCK LABEL] swap → real Neo4j "contradicts" edge lookup + Qdrant semantic check + Ollama intent detection
+→ [MOCK LABEL] swap → real Neo4j "contradicts" edge lookup + Qdrant semantic check + BitNet intent detection
 ```
 
 **Phase 5 acceptance criteria:**
@@ -349,7 +350,7 @@ $ mneme_inject("请继续修复auth flow")
 │   ├── retrieval/
 │   │   ├── __init__.py
 │   │   ├── engine.py                   # Tag-aware retrieval + priority scoring
-│   │   ├── intent_detector.py           # Ollama intent/tag detection
+│   │   ├── intent_detector.py           # BitNet intent/tag detection
 │   │   └── mock_retrieval.py           # Phase 4 mock [MOCK]
 │   ├── guard/
 │   │   ├── __init__.py
@@ -421,8 +422,23 @@ Phase is "done" when: mock fires correctly AND real path is documented in docstr
 | Hook mode? | Proactive before every API call + manual |
 | Memory guard? | Yes — block/warn before contradicting failed attempts |
 | Namespace? | Project root + session file path |
-| LLM strategy? | Anthropic API (chunking) → Gemini (tag-sort) → Ollama local (intent) |
+| LLM strategy? | Anthropic API (chunking) → Gemini (tag-sort) → BitNet local (intent) |
 | Watcher type? | FS events |
 | Memory TTL? | Never expire / manual delete |
 | Process model? | HTTP server (background daemon) |
 | Session model? | File-based — `/new` in AI chat = new conversation file = new session |
+
+---
+
+## Substitutions (Spec → Implementation Drift)
+
+This section documents intentional drift between the original spec and the current implementation. Each substitution preserves the original architectural role but changes the specific technology.
+
+### BitNet 1.58-bit (was: Ollama 100-200M)
+
+- **Role:** Local LLM for intent detection (and as a fallback when Gemini is unavailable for tag-sorting during retrieval).
+- **Original spec:** Ollama 100-200M local model.
+- **Actual implementation:** BitNet 1.58-bit (`microsoft/BitNet-b1.58-2B-4T-gguf`), served locally via `llama-server` exposing an OpenAI-compatible HTTP API.
+- **Why substituted:** BitNet provides a significantly smaller memory footprint and faster inference on Apple Silicon while preserving the same architectural role (local, offline-capable, user-controlled LLM). The OpenAI-compatible HTTP API surface keeps the integration drop-in for any client already speaking that protocol.
+- **Setup notes:** See `BITNET_KNOWN_ISSUES.md` for the full setup guide, model selection, and pitfalls (TL1 kernel OOM, pretokenizer breakage, etc.).
+- **Affected spec sections:** All references to "Ollama" / "Ollama 100-200M" / "Ollama local" throughout this document — including the architecture diagram, LLM strategy summary, phase acceptance criteria, and the file layout (`src/retrieval/intent_detector.py`).

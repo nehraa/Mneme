@@ -1,7 +1,5 @@
 """
-Graph Index — cross-chunk relationship traversal via Neo4j.
-Real implementation: uses Neo4j driver for graph traversal queries.
-Mock is in mock_graph.py.
+Graph Index — cross-chunk relationship traversal via the memory repository.
 """
 from __future__ import annotations
 
@@ -18,18 +16,13 @@ class GraphIndex:
     Wraps MemoryRepository graph methods with:
     - get_related(chunk_id, depth): direct edges at given depth
     - get_chains(chunk_id, depth): multi-hop traversal chains
-
-    [MOCK] Currently uses MockGraphIndex. Pass use_mock=False to use
-    the real Neo4j-backed implementation.
     """
 
     def __init__(
         self,
         repository: MemoryRepository | None = None,
-        use_mock: bool = False,
     ) -> None:
         self._repo = repository
-        self._use_mock = use_mock
 
     def get_related(
         self,
@@ -43,11 +36,6 @@ class GraphIndex:
           - chunk_id: the source chunk
           - relationships: list of {chunk_id, type, reason}
         """
-        if self._use_mock:
-            from src.graph.mock_graph import MockGraphIndex
-
-            return MockGraphIndex().get_related(chunk_id=chunk_id, depth=depth)
-
         related = self._repo.get_related_chunks(chunk_id=chunk_id, depth=depth)
         return {
             "chunk_id": chunk_id,
@@ -74,30 +62,6 @@ class GraphIndex:
           - depth: requested depth
           - chains: list of {path: [chunk_ids], relationship_types: [...], reason}
         """
-        if self._use_mock:
-            from src.graph.mock_graph import MockGraphIndex
-
-            return MockGraphIndex().get_chains(chunk_id=chunk_id, depth=depth)
-
-        # Real Neo4j implementation:
-        # Uses Cypher variable-length path pattern:
-        # MATCH (start {chunk_id: $chunk_id})-[*1..$depth]-(related)
-        # RETURN relationships between each hop
-        #
-        # from neo4j import GraphDatabase
-        # with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)) as driver:
-        #     with driver.session() as session:
-        #         result = session.run("""
-        #             MATCH path = (c {chunk_id: $chunk_id})-[*1..$depth]-(related)
-        #             WHERE c.chunk_id = $chunk_id
-        #             UNWIND relationships(path) AS rel
-        #             RETURN DISTINCT related.chunk_id AS chunk_id,
-        #                    type(rel) AS rel_type,
-        #                    rel.reason AS reason
-        #         """, chunk_id=chunk_id, depth=depth)
-        #         ...
-        #
-        # For now, fall back to iterative depth traversal via repo
         chains: list[dict[str, Any]] = []
         visited_paths: set[tuple[str, ...]] = set()
 

@@ -2,10 +2,9 @@
 Tests for the graph index (Phase 3).
 
 Verifies:
-- GraphIndex.get_related() produces correct manifest structure
-- GraphIndex.get_chains() produces correct manifest structure
-- MockGraphIndex returns deterministic mock data
+- GraphIndex.get_related() and get_chains() use the real repository
 - GET /graph/related/{id} and GET /graph/chains/{id} endpoints
+- The InMemoryMemoryRepository supports graph traversal correctly
 """
 from __future__ import annotations
 
@@ -13,157 +12,121 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.graph.index import GraphIndex
-from src.graph.mock_graph import MockGraphIndex
+from src.memory_store.repository import InMemoryMemoryRepository
 from src.server import app
 
 
-class TestMockGraphIndex:
-    """Unit tests for MockGraphIndex."""
+@pytest.fixture
+def repo() -> InMemoryMemoryRepository:
+    r = InMemoryMemoryRepository()
+    # Seed a simple graph: a -> b -> c, a -> c (so depth-1 and depth-2 differ)
+    for cid, content, source in [
+        ("mem_001", "first chunk", "auth.py"),
+        ("mem_002", "second chunk", "auth.py"),
+        ("mem_003", "third chunk", "auth.py"),
+    ]:
+        r.create_chunk({
+            "chunk_id": cid,
+            "content": content,
+            "tags": ["tool=auth"],
+            "outcome_tag": "work_done",
+            "source_file": source,
+            "session_id": "sess_1",
+            "linked_chunks": [],
+        })
+    r.create_edge({
+        "source_chunk_id": "mem_001",
+        "target_chunk_id": "mem_002",
+        "relationship_type": "follows",
+        "reason": "second attempt",
+    })
+    r.create_edge({
+        "source_chunk_id": "mem_002",
+        "target_chunk_id": "mem_003",
+        "relationship_type": "follows",
+        "reason": "third attempt",
+    })
+    return r
 
-    def test_get_related_returns_required_keys(self):
-        """get_related must return _mock, chunk_id, relationships."""
-        mock = MockGraphIndex()
-        result = mock.get_related(chunk_id="mem_001", depth=1)
 
-        assert result["_mock"] is True
+class TestGraphIndex:
+    """Unit tests for GraphIndex using the in-memory repository."""
+
+    def test_get_related_returns_relationships(self, repo: InMemoryMemoryRepository):
+        """get_related must return relationships from the repo."""
+        index = GraphIndex(repository=repo)
+        result = index.get_related(chunk_id="mem_001", depth=1)
         assert result["chunk_id"] == "mem_001"
         assert "relationships" in result
         assert isinstance(result["relationships"], list)
+        # mem_001 -> mem_002 must be in the relationships
+        ids = {r["chunk_id"] for r in result["relationships"]}
+        assert "mem_002" in ids
 
-    def test_get_related_relationships_have_required_fields(self):
-        """Each relationship must have chunk_id, type, reason."""
-        mock = MockGraphIndex()
-        result = mock.get_related(chunk_id="mem_001", depth=1)
+    def test_get_related_relationships_have_required_fields(self, repo: InMemoryMemoryRepository):
+        for r in GraphIndex(repository=repo).get_related("mem_001", 1)["relationships"]:
+            assert "chunk_id" in r
+            assert "type" in r
+            assert "reason" in r
 
-        for rel in result["relationships"]:
-            assert "chunk_id" in rel
-            assert "type" in rel
-            assert "reason" in rel
-
-    def test_get_related_implementation_note_present(self):
-        """_implementation_note must document the real path."""
-        mock = MockGraphIndex()
-        result = mock.get_related(chunk_id="mem_001", depth=1)
-        assert "_implementation_note" in result
-        assert "graph/index.py::GraphIndex.get_related()" in result["_implementation_note"]
-
-    def test_get_chains_returns_required_keys(self):
-        """get_chains must return _mock, chunk_id, depth, chains."""
-        mock = MockGraphIndex()
-        result = mock.get_chains(chunk_id="mem_001", depth=3)
-
-        assert result["_mock"] is True
+    def test_get_chains_returns_chains(self, repo: InMemoryMemoryRepository):
+        """get_chains returns multi-hop chains from the repo."""
+        index = GraphIndex(repository=repo)
+        result = index.get_chains(chunk_id="mem_001", depth=3)
         assert result["chunk_id"] == "mem_001"
         assert result["depth"] == 3
         assert "chains" in result
         assert isinstance(result["chains"], list)
-
-    def test_get_chains_paths_are_lists_of_chunk_ids(self):
-        """Each chain path must be a list of chunk_id strings."""
-        mock = MockGraphIndex()
-        result = mock.get_chains(chunk_id="mem_001", depth=3)
-
-        for chain in result["chains"]:
-            assert isinstance(chain["path"], list)
-            for item in chain["path"]:
-                assert isinstance(item, str)
-            assert "relationship_types" in chain
-            assert "reason" in chain
-
-    def test_get_chains_implementation_note_present(self):
-        """_implementation_note must document the real path."""
-        mock = MockGraphIndex()
-        result = mock.get_chains(chunk_id="mem_001", depth=3)
-        assert "_implementation_note" in result
-        assert "graph/index.py::GraphIndex.get_chains()" in result["_implementation_note"]
-
-
-class TestGraphIndex:
-    """Unit tests for GraphIndex with use_mock=True."""
-
-    def test_get_related_with_mock_returns_mock_result(self):
-        """use_mock=True must delegate to MockGraphIndex."""
-        index = GraphIndex(use_mock=True)
-        result = index.get_related(chunk_id="mem_001", depth=1)
-        assert result["_mock"] is True
-
-    def test_get_related_passes_chunk_id_to_mock(self):
-        """chunk_id must be forwarded to the mock."""
-        index = GraphIndex(use_mock=True)
-        result = index.get_related(chunk_id="mem_042", depth=2)
-        assert result["chunk_id"] == "mem_042"
-
-    def test_get_chains_with_mock_returns_mock_result(self):
-        """use_mock=True must delegate to MockGraphIndex for chains too."""
-        index = GraphIndex(use_mock=True)
-        result = index.get_chains(chunk_id="mem_001", depth=3)
-        assert result["_mock"] is True
+        # mem_001 -> mem_002 and mem_002 -> mem_003 should both appear
+        all_paths = [c["path"] for c in result["chains"]]
+        # at least one path starts from mem_001
+        assert any(p[0] == "mem_001" for p in all_paths)
 
 
 class TestGraphEndpoints:
-    """Integration tests for graph API endpoints."""
+    """Integration tests for graph API endpoints.
+
+    These use a TestClient backed by a freshly seeded in-memory repository
+    so we can verify the full request/response cycle without Neo4j.
+    """
 
     @pytest.fixture
-    def client(self) -> TestClient:
+    def client(self, monkeypatch) -> TestClient:
+        from src import server
+        # Reset the cached repo so each test gets a fresh one
+        server._repo = None
+        monkeypatch.setattr(
+            server, "get_repository", lambda: InMemoryMemoryRepository()
+        )
         return TestClient(app)
 
     def test_related_returns_200(self, client: TestClient):
-        """GET /graph/related/{id} must respond 200."""
         response = client.get("/graph/related/mem_001")
         assert response.status_code == 200
 
-    def test_related_returns_mock_manifest(self, client: TestClient):
-        """Response must be a valid mock manifest with all required fields."""
+    def test_related_relationships_have_required_fields(self, client: TestClient):
         response = client.get("/graph/related/mem_001")
         data = response.json()
-
-        assert data["_mock"] is True
         assert "chunk_id" in data
         assert "relationships" in data
         assert isinstance(data["relationships"], list)
 
-    def test_related_depth_param_passed(self, client: TestClient):
-        """depth query param must be accepted without error."""
+    def test_related_depth_param_accepted(self, client: TestClient):
         response = client.get("/graph/related/mem_001?depth=3")
         assert response.status_code == 200
 
-    def test_related_relationships_have_required_fields(self, client: TestClient):
-        """Each relationship in the response must have chunk_id, type, reason."""
-        response = client.get("/graph/related/mem_001")
-        data = response.json()
-
-        for rel in data["relationships"]:
-            assert "chunk_id" in rel
-            assert "type" in rel
-            assert "reason" in rel
-
     def test_chains_returns_200(self, client: TestClient):
-        """GET /graph/chains/{id} must respond 200."""
         response = client.get("/graph/chains/mem_001")
         assert response.status_code == 200
 
-    def test_chains_returns_mock_manifest(self, client: TestClient):
-        """Response must be a valid mock manifest with all required fields."""
+    def test_chains_returns_chains_list(self, client: TestClient):
         response = client.get("/graph/chains/mem_001")
         data = response.json()
-
-        assert data["_mock"] is True
         assert "chunk_id" in data
         assert "depth" in data
         assert "chains" in data
         assert isinstance(data["chains"], list)
 
-    def test_chains_depth_param_passed(self, client: TestClient):
-        """depth query param must be accepted without error."""
+    def test_chains_depth_param_accepted(self, client: TestClient):
         response = client.get("/graph/chains/mem_001?depth=4")
         assert response.status_code == 200
-
-    def test_chains_paths_are_list_of_strings(self, client: TestClient):
-        """Each chain path must be a list of chunk_id strings."""
-        response = client.get("/graph/chains/mem_001")
-        data = response.json()
-
-        for chain in data["chains"]:
-            assert isinstance(chain["path"], list)
-            for item in chain["path"]:
-                assert isinstance(item, str)

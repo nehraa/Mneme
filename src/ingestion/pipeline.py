@@ -1,15 +1,17 @@
 """
-[MOCK] Ingestion Pipeline — orchestrates file reading + LLM chunking + store writes.
-Real implementation: this IS the real pipeline. Mock is in mock_ingestion.py.
+Ingestion Pipeline — orchestrates file reading + LLM chunking + store writes.
 """
 from __future__ import annotations
 
 import glob
+import structlog
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from src.memory_store import MemoryRepository
+
+logger = structlog.get_logger(__name__)
 
 
 class IngestionPipeline:
@@ -20,18 +22,13 @@ class IngestionPipeline:
     2. Send each file's content to LLM for chunking
     3. Store resulting chunks in MemoryRepository
     4. Store cross-chunk relationships as graph edges
-
-    [MOCK] Currently uses MiniMaxClient (real API). Pass use_mock=True to use
-    the mock pipeline instead.
     """
 
     def __init__(
         self,
         repository: MemoryRepository | None = None,
-        use_mock: bool = False,
     ) -> None:
         self._repo = repository
-        self._use_mock = use_mock
 
     def run(
         self,
@@ -44,11 +41,6 @@ class IngestionPipeline:
 
         Returns an ingestion manifest dict.
         """
-        from src.ingestion.mock_ingestion import MockIngestionPipeline
-
-        if self._use_mock:
-            return MockIngestionPipeline().run(file_paths, session_id, project_root)
-
         # Collect all files
         all_files: list[tuple[str, str]] = []  # (file_path, content)
         for pattern in file_paths:
@@ -58,16 +50,17 @@ class IngestionPipeline:
                     try:
                         content = p.read_text(encoding="utf-8", errors="replace")
                         all_files.append((str(p), content))
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("file_read_failed", file=str(p), error=str(exc))
 
         total_chunks = 0
         total_edges = 0
         all_chunk_ids: list[str] = []
 
-        from src.ingestion.llm_client import MiniMaxClient
+        if all_files:
+            from src.ingestion.llm_client import MiniMaxClient
 
-        client = MiniMaxClient()
+            client = MiniMaxClient()
 
         for file_path, content in all_files:
             if not content.strip():
@@ -77,9 +70,6 @@ class IngestionPipeline:
                 result = client.chunk_content(content, file_path=file_path)
             except Exception as e:
                 # Log and continue — don't fail entire pipeline for one bad file
-                import structlog
-
-                logger = structlog.get_logger()
                 logger.warning("llm_chunking_failed", file=file_path, error=str(e))
                 continue
 

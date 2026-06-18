@@ -67,16 +67,35 @@ def _int_env(key: str, default: int) -> int:
         return default
 
 
-BITNET_HOST = os.environ.get("BITNET_HOST", "localhost")
-BITNET_PORT = _int_env("BITNET_PORT", 8081)
-BITNET_MODEL = os.environ.get("BITNET_MODEL", "bitnet-b1.58-2b-4t")
-BITNET_TIMEOUT = _int_env("BITNET_TIMEOUT", 60)
-BITNET_DISABLED = _bool_env("BITNET_DISABLED", False)
+# ── Lazy config (read at runtime so load_dotenv() can run first) ───────────────
 
 
-def _base_url() -> str:
+def _cfg_host() -> str:
+    return os.environ.get("BITNET_HOST", "localhost")
+
+
+def _cfg_port() -> int:
+    val = os.environ.get("BITNET_PORT", "").strip()
+    return int(val) if val else 8081
+
+
+def _cfg_model() -> str:
+    return os.environ.get("BITNET_MODEL", "bitnet-b1.58-2b-4t")
+
+
+def _cfg_timeout() -> int:
+    val = os.environ.get("BITNET_TIMEOUT", "").strip()
+    return int(val) if val else 60
+
+
+def _cfg_disabled() -> bool:
+    val = os.environ.get("BITNET_DISABLED", "").strip().lower()
+    return val in ("1", "true", "yes", "on")
+
+
+def _base_url(host: str, port: int) -> str:
     """Build the base URL for the OpenAI-compatible API."""
-    return f"http://{BITNET_HOST}:{BITNET_PORT}/v1"
+    return f"http://{host}:{port}/v1"
 
 
 # ── Intent detection prompt ─────────────────────────────────────────────────
@@ -117,7 +136,7 @@ class IntentResult:
         impl_note = (
             "Real: retrieval/intent_detector.py::IntentDetector._detect_real() — "
             "BitNet local inference via llama-server OpenAI-compatible API "
-            f"({BITNET_HOST}:{BITNET_PORT}) with {BITNET_MODEL}"
+            f"({_cfg_host()}:{_cfg_port()}) with {_cfg_model()}"
         )
         if self.degraded:
             impl_note += " [DEGRADED: server unreachable, using keyword fallback]"
@@ -137,10 +156,10 @@ def _chat_complete(
     system: str,
     user: str,
     *,
-    model: str = BITNET_MODEL,
+    model: str | None = None,
     temperature: float = 0.2,
     max_tokens: int = 256,
-    timeout: float = float(BITNET_TIMEOUT),
+    timeout: float | None = None,
 ) -> str:
     """
     Call /v1/chat/completions on the local llama-server.
@@ -148,7 +167,7 @@ def _chat_complete(
     Returns the assistant's content text. Raises httpx.HTTPError on failure.
     """
     payload = {
-        "model": model,
+        "model": model or _cfg_model(),
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -157,8 +176,8 @@ def _chat_complete(
         "max_tokens": max_tokens,
         "stream": False,
     }
-    url = f"{_base_url()}/chat/completions"
-    with httpx.Client(timeout=timeout) as client:
+    url = f"{_base_url(_cfg_host(), _cfg_port())}/chat/completions"
+    with httpx.Client(timeout=timeout or _cfg_timeout()) as client:
         response = client.post(url, json=payload)
         response.raise_for_status()
         data = response.json()
@@ -256,7 +275,7 @@ def detect_intent(prompt_context: str) -> IntentResult:
     The returned IntentResult.degraded flag tells the caller whether the
     response came from the LLM (False) or the fallback (True).
     """
-    if BITNET_DISABLED:
+    if _cfg_disabled():
         return _keyword_fallback(prompt_context)
 
     client = BitNetClient()
@@ -296,10 +315,10 @@ class BitNetClient:
         """
         Initialize BitNetClient. All args default to environment variables.
         """
-        self.host = host if host is not None else BITNET_HOST
-        self.port = port if port is not None else BITNET_PORT
-        self.model = model if model is not None else BITNET_MODEL
-        self.timeout = timeout if timeout is not None else float(BITNET_TIMEOUT)
+        self.host = host if host is not None else _cfg_host()
+        self.port = port if port is not None else _cfg_port()
+        self.model = model if model is not None else _cfg_model()
+        self.timeout = timeout if timeout is not None else float(_cfg_timeout())
         self._base_url = f"http://{self.host}:{self.port}/v1"
         self._health_url = f"http://{self.host}:{self.port}/health"
 
@@ -329,7 +348,7 @@ class BitNetClient:
         malformed response), falls back to keyword heuristics and marks the
         result as `degraded=True`.
         """
-        if BITNET_DISABLED:
+        if _cfg_disabled():
             return _keyword_fallback(prompt_context)
 
         try:

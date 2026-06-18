@@ -1,7 +1,7 @@
 """
-[MOCK] MiniMax LLM Client — for Phase 2 chunking.
-Real implementation: sends requests to MiniMax-Text-01 via OpenAI-compatible /v1/chat/completions.
-Real path: this file IS the real implementation — the [MOCK] label is on the call site in pipeline.py.
+MiniMax LLM Client — for Phase 2 chunking.
+
+Sends requests to MiniMax-Text-01 via OpenAI-compatible /v1/chat/completions.
 """
 from __future__ import annotations
 
@@ -104,7 +104,7 @@ class ChunkingResult:
 
 class MiniMaxClient:
     """
-    [MOCK] MiniMax API client for LLM-assisted chunking.
+    MiniMax API client for LLM-assisted chunking.
 
     Uses MiniMax-Text-01 via OpenAI-compatible /v1/chat/completions endpoint.
 
@@ -120,10 +120,20 @@ class MiniMaxClient:
         model: str = "MiniMax-Text-01",
         timeout: float = 120.0,
     ) -> None:
-        self._api_key = (
-            api_key
-            or "sk-cp-KjobHFSNe1A5LaEtTY0qrBV5l85bitrDDWkjO4VEtsGd6h8uTnRmbcuEQflj1FXbUwFX2L9S1Qt5_M-dqpFnX7qMGg7GUtGTfYp5EJJ05MVyuLN7N5WWoyA"
-        )
+        # Read API key from parameter, then env var, then fail loudly.
+        # [SECURITY] Never hardcode API keys — they leak via git history.
+        import os
+
+        env_key = os.environ.get("MINIMAX_API_KEY")
+        if api_key:
+            self._api_key = api_key
+        elif env_key:
+            self._api_key = env_key
+        else:
+            raise RuntimeError(
+                "[MINIMAX] API key not found. "
+                "Pass api_key=... or set MINIMAX_API_KEY environment variable."
+            )
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
@@ -138,7 +148,7 @@ class MiniMaxClient:
 
         Returns a ChunkingResult with chunks and cross-chunk relationships.
 
-        [MOCK] This is the real implementation — the mock is in mock_ingestion.py
+        Real implementation — calls the MiniMax-Text-01 chat completions endpoint.
         """
         url = f"{self._base_url}/v1/chat/completions"
         headers = {

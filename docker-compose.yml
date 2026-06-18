@@ -1,0 +1,140 @@
+# Mneme — Docker Compose stack
+#
+# Spins up:
+#   - mneme-app       — the FastAPI server (this app)
+#   - neo4j           — graph index (Phase 3 + Phase 5 real path)
+#   - qdrant          — vector search (Phase 4 real path, optional)
+#
+# Usage:
+#   docker compose pull              # download images
+#   docker compose up -d             # start all services
+#   ./scripts/verify.sh              # check everything is healthy
+#   docker compose logs -f mneme-app # follow Mneme logs
+#   docker compose down              # stop everything
+#
+# Note: BitNet (intent detection LLM) is intentionally NOT included in the
+# default stack because it requires the model to be downloaded locally
+# (~6.6GB for f32) and built from source. To enable:
+#   1. Run ./scripts/setup-bitnet.sh on the host
+#   2. Uncomment the `llm` service below
+#   3. Uncomment the `llm` dependency and BITNET_* env in mneme-app
+#   4. `docker compose up -d`
+
+services:
+  # ── Mneme app ──────────────────────────────────────────────────────────────
+  mneme-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mneme-app
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      # Server
+      MNEME_HOST: "0.0.0.0"
+      MNEME_PORT: "8080"
+      MNEME_CORS_ORIGINS: "*"
+      # Defaults for services not in .env
+      NEO4J_PASSWORD: "${NEO4J_PASSWORD:-mneme-dev-password}"
+      # Local LLM server (OpenAI-compatible). Defaults match start-llm-server.sh
+      BITNET_HOST: "host.docker.internal"
+      BITNET_PORT: "${BITNET_PORT:-8081}"
+      BITNET_MODEL: "${BITNET_MODEL:-bitnet-b1.58-2b-4t}"
+    # depends_on:
+    #   llm:
+    #     condition: service_healthy
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ── Local LLM server (BitNet llama-server, OpenAI-compatible) ─────────────
+  # Disabled by default — requires the model to be downloaded first.
+  # To enable:
+  #   1. ./scripts/setup-bitnet.sh
+  #   2. Uncomment the block below
+  #   3. Uncomment the `llm:` entry in mneme-app's depends_on
+  #
+  # llm:
+  #   image: ubuntu:24.04
+  #   container_name: mneme-llm
+  #   command: >
+  #     bash -c "
+  #       apt-get update && apt-get install -y --no-install-recommends curl ca-certificates &&
+  #       bash /scripts/start-llm-server.sh
+  #     "
+  #   working_dir: /workspace
+  #   volumes:
+  #     - ./scripts:/scripts:ro
+  #     - ./BitNet:/workspace/BitNet
+  #   ports:
+  #     - "${BITNET_PORT:-8081}:${BITNET_PORT:-8081}"
+  #   environment:
+  #     BITNET_HOST: "0.0.0.0"
+  #     BITNET_PORT: "${BITNET_PORT:-8081}"
+  #     BITNET_MODEL: "${BITNET_MODEL:-falcon3-1b-instruct}"
+  #     BITNET_CTX_SIZE: "${BITNET_CTX_SIZE:-2048}"
+  #     BITNET_THREADS: "${BITNET_THREADS:-4}"
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-fsS", "http://localhost:${BITNET_PORT:-8081}/health"]
+  #     interval: 30s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 120s
+
+  # ── Neo4j (graph database) ─────────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: mneme-neo4j
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt driver
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:-mneme-dev-password}"
+      NEO4J_PLUGINS: "[]"
+      NEO4J_server_memory_pagecache_size: "512M"
+      NEO4J_server_memory_heap_initial__size: "512M"
+      NEO4J_server_memory_heap_max__size: "1G"
+    volumes:
+      - neo4j-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7474"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── Qdrant (vector search) ─────────────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: mneme-qdrant
+    ports:
+      - "6333:6333"   # HTTP API
+      - "6334:6334"   # gRPC API
+    volumes:
+      - qdrant-data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:6333/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  neo4j-data:
+    name: mneme-neo4j-data
+  qdrant-data:
+    name: mneme-qdrant-data

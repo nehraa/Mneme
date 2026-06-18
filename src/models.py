@@ -1,6 +1,5 @@
 """
-[MOCK] In-memory models for Phase 1 — matching the real Neo4j data model.
-Real implementation → memory_store/repository.py::Neo4jMemoryRepository
+In-memory models matching the Neo4j data model.
 """
 from __future__ import annotations
 
@@ -144,10 +143,21 @@ class ChunkRelationship(BaseModel):
 
 # ── Helper constructors ───────────────────────────────────────────────────────
 
-_COUNTER = 0
+import threading
+
+_counter = 0
+_counter_lock = threading.Lock()
 
 
 def next_chunk_id() -> str:
-    global _COUNTER
-    _COUNTER += 1
-    return f"mem_{_COUNTER:03d}"
+    """Generate the next chunk ID, thread-safely.
+
+    [SECURITY/PRODUCTION] Uses a threading.Lock to prevent race conditions
+    when multiple worker processes or threads call this concurrently.
+    Note: lock protects within a single process. For multi-process
+    deployments, use UUIDs or a database sequence.
+    """
+    global _counter
+    with _counter_lock:
+        _counter += 1
+        return f"mem_{_counter:03d}"

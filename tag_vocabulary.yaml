@@ -1,0 +1,104 @@
+# Tag Vocabulary — Extensible Canonical Tag Definitions
+#
+# This file lets you extend the tag vocabulary WITHOUT changing Python code.
+# Edit this file to:
+#   1. Add new canonical values to existing categories
+#   2. Add new synonyms (e.g., "prisma" → "db")
+#   3. Add entirely new categories (e.g., "framework", "deployment_target")
+#
+# Rules:
+#   - Each canonical value must be a stable identifier (use snake_case, no spaces)
+#   - Each synonym maps to ONE canonical value (the same canonical on both sides)
+#   - The "other" canonical value (when present) is the catch-all fallback
+#
+# After editing, restart the Mneme service to pick up changes.
+#
+# The default vocabulary is in src/tagging/vocabulary.py — YAML here OVERRIDES
+# specific entries but keeps defaults for anything you don't override.
+
+tool:
+  canonical:
+    - auth
+    - db
+    - http
+    - file_io
+    - memory
+    - config
+    - log
+    - search
+    - queue
+    - cache
+    - test
+    - build
+    - deploy
+    - other
+  # Add your project's custom tool synonyms here. Examples:
+  # synonyms:
+  #   prisma: db          # already in defaults
+  #   drizzle: db         # already in defaults
+  #   langchain: other
+  #   llamaindex: other
+  #   s3: file_io
+  synonyms: {}
+
+outcome:
+  canonical:
+    - work_done
+    - failed
+    - successfully_called
+    - no_tool_called
+    - stopped
+    - other
+  synonyms: {}
+
+error:
+  canonical:
+    - timeout
+    - token_expired
+    - auth_rejected
+    - not_found
+    - server_error
+    - service_unavailable
+    - rate_limited
+    - validation
+    - connection
+    - permission_denied
+    - other
+  synonyms: {}
+
+language:
+  canonical:
+    - py
+    - js
+    - ts
+    - go
+    - rs
+    - rb
+    - java
+    - kt
+    - swift
+    - c
+    - cpp
+    - cs
+    - php
+    - sh
+    - sql
+    - yaml
+    - json
+    - toml
+    - md
+    - other
+  synonyms: {}
+
+# ── Custom category example ──────────────────────────────────────────────────
+# Add a new category by listing it here. Synonyms are optional.
+#
+# framework:
+#   canonical: [fastapi, django, rails, express, nextjs, svelte, other]
+#   synonyms:
+#     next: nextjs
+#     nuxt: nextjs
+#
+# deployment:
+#   canonical: [aws, gcp, azure, vercel, fly, railway, other]
+#   synonyms: {}

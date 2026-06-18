@@ -70,7 +70,9 @@ class QdrantConfig:
 
     host: str = field(default_factory=lambda: _getenv("QDRANT_HOST", "http://localhost:6333"))
     collection: str = field(default_factory=lambda: _getenv("QDRANT_COLLECTION", "mneme_chunks"))
-    vector_size: int = 768  # gemini-embedding-2 dimension
+    # gemini-embedding-2 output dimension. Use `outputDimensionality` in the
+    # API request to reduce this (e.g. 768) for cheaper storage if needed.
+    vector_size: int = 3072
 
 
 @dataclass

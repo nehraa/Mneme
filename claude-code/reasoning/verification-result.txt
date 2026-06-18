@@ -1,1 +1,49 @@
-VERIFICATION: PASS
+VERIFICATION: ISSUES_FOUND
+Incomplete implementation in: .env.example
+Potential hardcoded values in: .env.example
+Incomplete implementation in: .gitignore
+Incomplete implementation in: .qwen/reasoning/hook-status.log
+Placeholder found in: README.md
+Incomplete implementation in: README.md
+Potential hardcoded values in: README.md
+Incomplete implementation in: SPEC.md
+Potential hardcoded values in: SPEC.md
+Incomplete implementation in: claude-code/plan/FIX_REQUEST.md
+Incomplete implementation in: claude-code/reasoning/doc-result.txt
+Incomplete implementation in: claude-code/reasoning/hook-status.log
+Incomplete implementation in: claude-code/reasoning/quality-gates-.json
+Potential hardcoded values in: claude-code/reasoning/quality-gates-.json
+Incomplete implementation in: claude-code/reasoning/security-result.txt
+Empty catch block in: claude-code/reasoning/security-result.txt
+Incomplete implementation in: claude-code/reasoning/skill-events.md
+Incomplete implementation in: claude-code/reasoning/subagent-aggregation-summary.md
+Incomplete implementation in: claude-code/reasoning/subagent-results-summary.md
+Incomplete implementation in: claude-code/reasoning/verification-history.md
+Incomplete implementation in: claude-code/reasoning/verification-log.md
+Incomplete implementation in: claude-code/reasoning/verification-result.txt
+Potential hardcoded values in: claude-code/reasoning/verification-result.txt
+Incomplete implementation in: claude-code/reasoning/verification-status.txt
+Incomplete implementation in: claude-code/reasoning/verification-summary.md
+Incomplete implementation in: claude-code/verification/attempt-count.txt
+Incomplete implementation in: claude-code/verification/current-failures.json
+Incomplete implementation in: claude-code/verification/pass-1-test-sync.md
+Incomplete implementation in: pyproject.toml
+Incomplete implementation in: src/config.py
+Potential hardcoded values in: src/config.py
+Incomplete implementation in: src/graph/index.py
+Incomplete implementation in: src/ingestion/llm_client.py
+Incomplete implementation in: src/ingestion/pipeline.py
+Incomplete implementation in: src/memory_store/__init__.py
+Incomplete implementation in: src/memory_store/repository.py
+Incomplete implementation in: src/models.py
+Incomplete implementation in: src/retrieval/__init__.py
+Incomplete implementation in: src/retrieval/engine.py
+Incomplete implementation in: src/retrieval/intent_detector.py
+Placeholder found in: src/server.py
+Incomplete implementation in: src/server.py
+Incomplete implementation in: tests/test_graph.py
+Incomplete implementation in: tests/test_ingestion.py
+Incomplete implementation in: tests/test_memory_store.py
+Incomplete implementation in: tests/test_retrieval.py
+Incomplete implementation in: uv.lock
+
