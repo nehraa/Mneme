@@ -88,11 +88,11 @@ app = FastAPI(
 # Behavior:
 #   - If MNEME_CORS_ORIGINS is UNSET → allow no cross-origin requests (empty list).
 #     The server logs a warning at startup so operators know restrictive mode is active.
-#   - If MNEME_CORS_ORIGINS is set to "*" → reject at startup. A wildcard origin
-#     combined with allow_credentials=True is unsafe: any site can issue
-#     credentialed cross-origin requests against this API. Starlette also
-#     refuses this combination, so failing fast here surfaces the misconfiguration
-#     with a clear message instead of an opaque middleware error.
+#   - If MNEME_CORS_ORIGINS is set to "*" → log a loud warning and proceed. A
+#     wildcard origin combined with allow_credentials=True is unsafe: any site
+#     can issue credentialed cross-origin requests against this API. We still
+#     honor the operator's explicit choice rather than refusing to start, so
+#     the warning is the loud feedback they get.
 #   - If MNEME_CORS_ORIGINS is set to a comma-separated list of origins → use them.
 #
 # Set MNEME_CORS_ORIGINS in production to the exact origin(s) that need access,
@@ -108,17 +108,21 @@ if _cors_env is None or _cors_env.strip() == "":
 else:
     _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
     if _cors_origins == ["*"]:
-        # allow_credentials=True + wildcard origin is unsafe. Refuse to start
-        # so the operator must make an explicit, safe choice.
-        raise RuntimeError(
-            "Insecure CORS configuration: MNEME_CORS_ORIGINS='*' is not "
-            "allowed because allow_credentials=True. Set MNEME_CORS_ORIGINS "
-            "to a comma-separated list of explicit origins (e.g. "
-            "'https://app.example.com') or unset it to deny all cross-origin requests."
+        # allow_credentials=True + wildcard origin is unsafe. The operator set
+        # this explicitly, so honor it but make the security risk impossible
+        # to miss: log a loud, specific warning and continue.
+        logger.warning(
+            "SECURITY WARNING: MNEME_CORS_ORIGINS='*' allows ANY origin to "
+            "make credentialed cross-origin requests to this API. This is a "
+            "known unsafe combination (allow_credentials=True + wildcard). "
+            "Set MNEME_CORS_ORIGINS to a comma-separated list of explicit "
+            "origins (e.g. 'https://app.example.com') or unset it to deny "
+            "all cross-origin requests. Proceeding with '*' as requested."
         )
-    logger.info(
-        "CORS: allowing cross-origin requests from %s", _cors_origins
-    )
+    else:
+        logger.info(
+            "CORS: allowing cross-origin requests from %s", _cors_origins
+        )
 
 app.add_middleware(
     CORSMiddleware,
