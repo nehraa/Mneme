@@ -115,10 +115,13 @@ else:
 def _is_path_under_allowed_roots(resolved: Path) -> bool:
     """Return True iff `resolved` lives under one of the configured allowlist roots.
 
-    Comparison uses Path.is_relative_to() (Python 3.9+) which is the
-    documented, symlink-aware way to test ancestry. Resolving once on the
-    caller side makes sure symlinks inside an allowed root that point
-    outside it still produce a `resolved` value the prefix check rejects.
+    Comparison walks the resolved path's parents and checks whether any
+    configured allowlist root is an ancestor (or matches exactly). This
+    handles the case where `resolved` itself is one of the allowed roots,
+    and treats ancestry via `root in resolved.parents` so symlinks inside
+    an allowed root that point outside it still produce a `resolved` value
+    the prefix check rejects. Resolving once on the caller side ensures
+    symlinked paths are normalized before the ancestry check.
     """
     if _ALLOWED_INGEST_ROOTS is None:
         return True
@@ -173,7 +176,7 @@ def _validate_ingest_paths(file_paths: list[str]) -> None:
         # Layer 2: validate every glob match. A glob like "/srv/code/**/*.py"
         # could expand to many files, all of which must individually live
         # under the allowlist (Path.resolve() handles symlinked matches).
-        for match in glob.glob(pattern, recursive=True):
+        for match in glob.glob(str(Path(pattern).expanduser()), recursive=True):
             try:
                 resolved = Path(match).expanduser().resolve(strict=False)
             except OSError as exc:
