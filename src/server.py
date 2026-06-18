@@ -14,6 +14,9 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 from src.memory_store import get_repository
 from src.models import next_chunk_id
@@ -129,8 +132,60 @@ app.add_middleware(
     allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["*"],
+    # Explicit allowlist: combined with allow_credentials=True, "*" is
+    # unsafe (any cross-origin header from a permitted origin). Mneme's API
+    # only needs Authorization + Content-Type for all current endpoints.
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+# ── Security response headers ──────────────────────────────────────────────────
+#
+# Adds defensive headers to every response:
+#   - Strict-Transport-Security: pin HTTPS for 1 year (no preload by default)
+#   - X-Frame-Options: DENY — never framed
+#   - X-Content-Type-Options: nosniff — block MIME sniffing
+#   - Content-Security-Policy: lock down by default (server returns no HTML)
+#   - Referrer-Policy: no-referrer — never leak the request URL
+#
+# Set MNEME_SECURITY_HEADERS=false to disable (e.g. local dev behind a proxy
+# that already sets these headers).
+_SECURITY_HEADERS_ENABLED = os.environ.get("MNEME_SECURITY_HEADERS", "true").lower() not in (
+    "false",
+    "0",
+    "no",
+    "off",
+)
+if not _SECURITY_HEADERS_ENABLED:
+    logger.warning(
+        "MNEME_SECURITY_HEADERS=false — security response headers are disabled. "
+        "This is unsafe for production. Enable it unless running behind a proxy "
+        "that already sets Strict-Transport-Security, X-Frame-Options, "
+        "X-Content-Type-Options, Content-Security-Policy, and Referrer-Policy."
+    )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Inject defensive security headers into every response."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        # HSTS: always pin HTTPS for 1 year on all subdomains. No `preload`
+        # so operators can opt in deliberately after auditing their setup.
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        # Mneme serves only JSON; no scripts, no frames, no subresources.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; frame-ancestors 'none'"
+        )
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
+
+if _SECURITY_HEADERS_ENABLED:
+    app.add_middleware(SecurityHeadersMiddleware)
 
 # Lazy-initialized repository — back onto Neo4j (or fallback at construction time).
 _repo: Any = None
