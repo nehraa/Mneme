@@ -100,23 +100,9 @@ def _base_url(host: str, port: int) -> str:
 
 # ── Intent detection prompt ─────────────────────────────────────────────────
 
-INTENT_SYSTEM_PROMPT = """You are an intent detection assistant for an agentic memory system.
-
-Given a user prompt, detect:
-1. **intent**: What is the user trying to do? One of:
-   - continue_previous_work  — resume a previous task or flow
-   - retry_previous_attempt  — retry something that failed before
-   - fix_previous_failure    — fix a specific failure
-   - general                — none of the above
-
-2. **detected_tags**: Flat tag list. Use "category=value" format:
-   - outcome=failed | outcome=work_done | outcome=successfully_called
-   - outcome=stopped | outcome=no_tool_called
-   - tool=auth | tool=db | tool=http | tool=file_io | tool=...
-   - error=token_expired | error=timeout | error=auth_rejected | ...
-
-Return ONLY valid JSON:
-{"intent": "<label>", "detected_tags": ["tag1", "tag2"]}"""
+INTENT_SYSTEM_PROMPT = """Detect intent for the user prompt. Reply ONLY with valid JSON, no prose, no fences:
+{"intent": "<continue_previous_work|retry_previous_attempt|fix_previous_failure|general>", "detected_tags": ["tag1"]}
+Tags: outcome=failed|work_done|successfully_called|stopped|no_tool_called, tool=auth|db|http|file_io|llm, error=token_expired|timeout|auth_rejected|network."""
 
 
 # ── Result type ──────────────────────────────────────────────────────────────
@@ -158,7 +144,7 @@ def _chat_complete(
     *,
     model: str | None = None,
     temperature: float = 0.2,
-    max_tokens: int = 16,  # intent label is short — keep generation time under 8s
+    max_tokens: int = 60,  # intent JSON is ~40-60 tokens; less truncates mid-array
     timeout: float | None = None,
 ) -> str:
     """
