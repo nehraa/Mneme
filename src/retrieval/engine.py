@@ -30,6 +30,7 @@ RECENCY_BOOST_AMOUNT = 0.1
 EMBEDDING_WEIGHT = 0.3
 GRAPH_BOOST_WEIGHT = 0.2
 GRAPH_HOPS = 1
+QDRANT_WEIGHT = 1.5  # cosine similarity dominates when present (June 19 2026)
 
 # Category weights — outcome tags are most important (failure context),
 # error tags are second (specific failure mode), tool tags are third (area).
@@ -341,7 +342,19 @@ class RetrievalEngine:
         chunks: list[dict[str, Any]],
         detected_tags: list[str],
     ) -> list[dict[str, Any]]:
-        """Apply priority scoring formula to each chunk."""
+        """Apply priority scoring formula to each chunk.
+
+        Formula (June 19 2026 revision):
+          score = (tag_match * outcome_weight)
+                  + recency_boost
+                  + (embedding_similarity * EMBEDDING_WEIGHT)
+                  + (graph_boost * GRAPH_BOOST_WEIGHT)
+                  + (qdrant_score * QDRANT_WEIGHT)   ← NEW: cosine wins when present
+
+        QDRANT_WEIGHT (1.5) is dominant because cosine similarity over
+        dense Ollama embeddings is the strongest semantic signal. Tag
+        match is a tiebreaker.
+        """
         now = datetime.now(timezone.utc)
         cutoff = now - timedelta(days=RECENCY_BOOST_DAYS)
         scored_chunks = []
@@ -354,6 +367,10 @@ class RetrievalEngine:
                 chunk_tags, detected_tags
             )
             graph_boost = self._compute_graph_boost(chunk, all_candidate_ids)
+            # Cosine similarity from in-memory vector search (or qdrant).
+            # Already in [-1, 1]; shift to [0, 1] so a 0 doesn't tank the score.
+            qdrant_score = chunk.get("qdrant_score", 0.0)
+            qdrant_norm = (qdrant_score + 1.0) / 2.0  # [-1,1] → [0,1]
 
             outcome_tag = chunk.get("outcome_tag", "work_done")
             outcome_weight = OUTCOME_PRIORITY.get(outcome_tag, 0.2)
@@ -377,6 +394,7 @@ class RetrievalEngine:
                 + recency_boost
                 + (embedding_similarity * EMBEDDING_WEIGHT)
                 + (graph_boost * GRAPH_BOOST_WEIGHT)
+                + (qdrant_norm * QDRANT_WEIGHT)
             )
             scored_chunks.append({**chunk, "score": score})
 

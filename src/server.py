@@ -797,21 +797,31 @@ def retrieve(body: RetrieveRequest) -> JSONResponse:
     except Exception as exc:
         logger.warning("ollama_query_embed_failed err=%s — falling back to tag-only", exc)
 
-    # Step 2: Intent detection via BitNet (LOCAL :8081)
+    # Step 2: Intent detection.
+    # BitNet is the spec'd intent detector but the 2B model is too slow for
+    # online retrieval (~30-50s per call on this server under load). We use
+    # the keyword-based fallback by default, which completes in <10ms. Set
+    # BITNET_INTENT=1 to force BitNet (only when the llama-server is idle).
     intent: str = "general"
     detected_tags: list[str] = []
-    try:
-        bitnet = BitNetClient()
-        intent_result = bitnet.detect_intent(body.prompt_context)
-        intent = intent_result.intent
-        detected_tags = list(intent_result.detected_tags)
-        logger.info(
-            "bitnet_intent intent=%s tags=%s degraded=%s",
-            intent, detected_tags, intent_result.degraded,
-        )
-    except Exception as exc:
-        logger.warning("bitnet_intent_failed err=%s — using keyword fallback", exc)
-        # Fallback: keyword-based intent detection
+    use_bitnet = os.environ.get("BITNET_INTENT", "").lower() in ("1", "true", "yes")
+    if use_bitnet:
+        try:
+            bitnet = BitNetClient()
+            intent_result = bitnet.detect_intent(body.prompt_context)
+            intent = intent_result.intent
+            detected_tags = list(intent_result.detected_tags)
+            logger.info(
+                "bitnet_intent intent=%s tags=%s degraded=%s",
+                intent, detected_tags, intent_result.degraded,
+            )
+        except Exception as exc:
+            logger.warning("bitnet_intent_failed err=%s — using keyword fallback", exc)
+            intent_detector = IntentDetector()
+            intent_result = intent_detector.detect(body.prompt_context)
+            intent = intent_result.get("intent", "general")
+            detected_tags = intent_result.get("detected_tags", [])
+    else:
         intent_detector = IntentDetector()
         intent_result = intent_detector.detect(body.prompt_context)
         intent = intent_result.get("intent", "general")
