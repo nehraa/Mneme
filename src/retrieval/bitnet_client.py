@@ -85,7 +85,7 @@ def _cfg_model() -> str:
 
 def _cfg_timeout() -> int:
     val = os.environ.get("BITNET_TIMEOUT", "").strip()
-    return int(val) if val else 60
+    return int(val) if val else 8
 
 
 def _cfg_disabled() -> bool:
@@ -158,7 +158,7 @@ def _chat_complete(
     *,
     model: str | None = None,
     temperature: float = 0.2,
-    max_tokens: int = 256,
+    max_tokens: int = 16,  # intent label is short — keep generation time under 8s
     timeout: float | None = None,
 ) -> str:
     """

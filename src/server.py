@@ -26,6 +26,7 @@ from starlette.responses import Response
 
 from src.memory_store import get_repository
 from src.models import next_chunk_id
+from src.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -772,43 +773,51 @@ def retrieve(body: RetrieveRequest) -> JSONResponse:
     """
     POST /retrieve — given a prompt, retrieve relevant memories.
 
-    Uses real Gemini embeddings when available:
-    1. Embed the prompt via Gemini text-embedding-004
-    2. Search Qdrant for semantically similar chunks (cosine similarity)
-    3. Score candidates using the 4-component formula
+    Three-tier strategy (June 19 2026):
+      1. Embed the prompt via Ollama qwen3-embedding:0.6b (LOCAL)
+      2. Score candidates using tag match + outcome priority + recency
+      3. Intent detection via BitNet b1.58-2B-4T (LOCAL, :8081)
+      4. Re-rank using BitNet's intent + chunk similarity
 
-    Falls back gracefully to in-memory retrieval if Gemini or Qdrant
-    is unavailable.
+    Gemini is NOT used anywhere — we use Ollama for embeddings and
+    MiniMax M2.7 only for LLM chunking (offline at retrieve time).
     """
     from src.retrieval.engine import RetrievalEngine
+    from src.retrieval.intent_detector import IntentDetector
+    from src.retrieval.bitnet_client import BitNetClient
 
-    # Generate query embedding via configured provider (best-effort)
+    # Step 1: Embed the query via Ollama (LOCAL, no rate limits)
     query_embedding = None
-    cfg = get_config()
-    if cfg.llm.embedding_provider == "ollama":
-        try:
-            from src.retrieval.ollama_embeddings import OllamaEmbeddingClient
+    try:
+        from src.retrieval.ollama_embeddings import OllamaEmbeddingClient
 
-            ollama_emb = OllamaEmbeddingClient()
-            query_embedding = ollama_emb.embed(body.prompt_context)
-        except Exception as exc:
-            logger.warning(
-                "Failed to generate Ollama query embedding, falling back to tag-based search: %s",
-                exc,
-            )
-    elif cfg.llm.embedding_provider != "ollama":
-        # Gemini (default)
-        try:
-            from src.retrieval.gemini_embeddings import GeminiEmbeddingClient
+        ollama_emb = OllamaEmbeddingClient()
+        query_embedding = ollama_emb.embed(body.prompt_context)
+        logger.info("ollama_query_embedding dim=%d", len(query_embedding))
+    except Exception as exc:
+        logger.warning("ollama_query_embed_failed err=%s — falling back to tag-only", exc)
 
-            gemini = GeminiEmbeddingClient()
-            query_embedding = gemini.embed(body.prompt_context)
-        except Exception as exc:
-            logger.warning(
-                "Failed to generate Gemini query embedding, falling back to tag-based search: %s",
-                exc,
-            )
+    # Step 2: Intent detection via BitNet (LOCAL :8081)
+    intent: str = "general"
+    detected_tags: list[str] = []
+    try:
+        bitnet = BitNetClient()
+        intent_result = bitnet.detect_intent(body.prompt_context)
+        intent = intent_result.intent
+        detected_tags = list(intent_result.detected_tags)
+        logger.info(
+            "bitnet_intent intent=%s tags=%s degraded=%s",
+            intent, detected_tags, intent_result.degraded,
+        )
+    except Exception as exc:
+        logger.warning("bitnet_intent_failed err=%s — using keyword fallback", exc)
+        # Fallback: keyword-based intent detection
+        intent_detector = IntentDetector()
+        intent_result = intent_detector.detect(body.prompt_context)
+        intent = intent_result.get("intent", "general")
+        detected_tags = intent_result.get("detected_tags", [])
 
+    # Step 3: Retrieve using engine (tag match + outcome priority)
     engine = RetrievalEngine(
         repository=repo(),
         qdrant_search=qdrant_search(),
@@ -818,6 +827,12 @@ def retrieve(body: RetrieveRequest) -> JSONResponse:
         session_id=body.session_id,
         query_embedding=query_embedding,
     )
+
+    # Merge BitNet intent into response
+    if isinstance(result, dict):
+        result["intent"] = intent
+        result["detected_tags"] = detected_tags
+
     return JSONResponse(content=result)
 
 

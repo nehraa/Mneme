@@ -56,7 +56,7 @@ class LLMConfig:
     )
     # Set to "ollama" to use Ollama for embeddings instead of Gemini.
     embedding_provider: str = field(
-        default_factory=lambda: _getenv("EMBEDDING_PROVIDER", "gemini")
+        default_factory=lambda: _getenv("EMBEDDING_PROVIDER", "ollama")
     )
 
     # BitNet (local LLM server, OpenAI-compatible HTTP)

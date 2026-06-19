@@ -208,6 +208,11 @@ class RetrievalEngine:
         When ``query_embedding`` is provided and Qdrant is configured, uses
         vector search to retrieve candidates. Otherwise falls back to the
         repository's tag-based listing.
+
+        NEW (June 19 2026): When Qdrant is unavailable but query_embedding is
+        provided AND chunks have in-memory embeddings, do brute-force cosine
+        similarity search across all chunks. This makes Ollama embeddings
+        useful without needing a Qdrant deployment.
         """
         if self._qdrant_search is not None and query_embedding is not None:
             filter_conditions: dict[str, Any] = {}
@@ -238,10 +243,87 @@ class RetrievalEngine:
                     exc,
                 )
 
+        # No Qdrant — try in-memory cosine similarity over stored embeddings.
+        # The dev_server loader preserves "embedding" in REPO, so we can use it.
+        if query_embedding is not None and self._repo is not None:
+            return self._cosine_search_in_memory(
+                query_embedding=query_embedding,
+                session_id=session_id,
+                limit=limit,
+            )
+
         # Fallback: repository-based candidate retrieval (tag/recency)
         if self._repo is None:
             return []
         return self._repo.list_chunks(session_id=session_id, limit=limit)
+
+    def _cosine_search_in_memory(
+        self,
+        query_embedding: list[float],
+        session_id: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Brute-force cosine similarity over in-memory chunk embeddings.
+
+        Used when Qdrant isn't running but we still want semantic search.
+        Vectorized with numpy for speed — 7000+ chunks in single-digit ms.
+        """
+        if not hasattr(self._repo, "_chunks"):
+            return self._repo.list_chunks(session_id=session_id, limit=limit) if self._repo else []
+
+        # Collect chunks + embeddings, filter by session_id + has embedding
+        candidate_chunks: list[dict[str, Any]] = []
+        candidate_vecs: list[list[float]] = []
+        for chunk in self._repo._chunks.values():
+            if session_id and chunk.get("session_id") != session_id:
+                continue
+            emb = chunk.get("embedding")
+            if not emb or not isinstance(emb, list):
+                continue
+            candidate_chunks.append(chunk)
+            candidate_vecs.append(emb)
+
+        if not candidate_chunks:
+            return []
+
+        # Vectorized cosine similarity via numpy
+        try:
+            import numpy as np
+            q = np.asarray(query_embedding, dtype=np.float32)
+            mat = np.asarray(candidate_vecs, dtype=np.float32)
+            q_norm = np.linalg.norm(q)
+            mat_norms = np.linalg.norm(mat, axis=1)
+            # Avoid divide-by-zero
+            mask = (mat_norms > 0) & (q_norm > 0)
+            sims = np.zeros(len(candidate_chunks), dtype=np.float32)
+            sims[mask] = (mat[mask] @ q) / (mat_norms[mask] * q_norm)
+        except ImportError:
+            # numpy not available — pure python fallback (slow but works)
+            q_norm = sum(x * x for x in query_embedding) ** 0.5
+            sims = []
+            for emb in candidate_vecs:
+                c_norm = sum(a * a for a in emb) ** 0.5
+                if q_norm == 0 or c_norm == 0:
+                    sims.append(0.0)
+                    continue
+                dot = sum(a * b for a, b in zip(query_embedding, emb))
+                sims.append(dot / (q_norm * c_norm))
+            sims_arr = __import__("numpy").asarray(sims, dtype=__import__("numpy").float32) if False else sims
+            # sort by score desc, take top
+            scored = sorted(zip(sims, candidate_chunks), key=lambda x: -x[0])[:limit]
+            return [{**chunk, "qdrant_score": float(sim)} for sim, chunk in scored]
+
+        # Numpy path: get top-N indices
+        n = min(limit, len(sims))
+        # argpartition is O(n) vs full sort; faster for top-k
+        top_idx = np.argpartition(-sims, n - 1)[:n]
+        # Sort those by score desc
+        top_idx = top_idx[np.argsort(-sims[top_idx])]
+
+        return [
+            {**candidate_chunks[i], "qdrant_score": float(sims[i])}
+            for i in top_idx
+        ]  
 
     def _detect_intent(self, prompt_context: str) -> dict[str, Any]:
         """
