@@ -17,18 +17,30 @@ os.environ['QDRANT_HOST'] = 'http://localhost:6333'
 from src.config import get_config
 from src.memory_store.neo4j_repository import Neo4jMemoryRepository
 from src.retrieval.qdrant_search import QdrantSearch
-from src.retrieval.gemini_embeddings import GeminiEmbeddingClient, EMBEDDING_DIM
+from src.retrieval.gemini_embeddings import GeminiEmbeddingClient, EMBEDDING_DIM as GEMINI_DIM
+from src.retrieval.ollama_embeddings import OllamaEmbeddingClient
 from src.retrieval.bitnet_client import detect_intent
 from src.ingestion.pipeline import IngestionPipeline
 from src.guard.diff_engine import DiffEngine
 
 config = get_config()
 repo = Neo4jMemoryRepository(uri=config.neo4j.uri, user=config.neo4j.user, password=config.neo4j.password or "")
-qdrant = QdrantSearch(host="http://localhost:6333", collection="mneme_chunks", vector_size=EMBEDDING_DIM)
-gemini = GeminiEmbeddingClient()
+
+# Use the configured embedding provider to determine Qdrant vector size
+provider = config.llm.embedding_provider
+if provider == "ollama":
+    vector_dim = config.llm.ollama_embedding_dim
+    embed_client = OllamaEmbeddingClient()
+    embed_label = f"Ollama/{config.llm.ollama_embedding_model}"
+else:
+    vector_dim = GEMINI_DIM
+    embed_client = GeminiEmbeddingClient()
+    embed_label = f"Gemini/{config.llm.gemini_embedding_model}"
+
+qdrant = QdrantSearch(host="http://localhost:6333", collection="mneme_chunks", vector_size=vector_dim)
 
 print("【0】 Backends...")
-print(f"  Neo4j ✓  Qdrant ✓  Gemini ({EMBEDDING_DIM}D) ✓")
+print(f"  Neo4j ✓  Qdrant ({vector_dim}D) ✓  {embed_label} ✓")
 
 print("\n【1】 LLM-assisted chunking...")
 all_files = sorted([f for f in glob.glob("/tmp/mneme-demo/**/*", recursive=True)
@@ -51,7 +63,7 @@ for fname, chunks in sorted(by_f.items(), key=lambda x: x[0] or ""):
     print(f"    {basename:28s} {len(chunks):2d} chunks  cats: {tags}")
 
 print("\n【3】 Qdrant vectors...")
-results = qdrant.search(query_embedding=[0.0]*EMBEDDING_DIM, limit=10, filter_conditions=None)
+results = qdrant.search(query_embedding=[0.0]*vector_dim, limit=10, filter_conditions=None)
 print(f"  ✓ {len(results)} vectors in '{qdrant._collection}'")
 
 print("\n【4】 BitNet Intent Detection...")
@@ -84,16 +96,16 @@ for i, c in enumerate(top_chunks, 1):
     print(f"  [{i}] {os.path.basename(c['source_file'])}:{c['chunk_id']}  tags={c.get('tags', [])}")
     print(f"       \"{preview}...\"")
 
-print("\n【6】 Gemini semantic re-ranking...")
-qemb = gemini.embed(prompt)
-print(f"  Query: {len(qemb)}D vector from Gemini")
+print("\n【6】 Semantic re-ranking...")
+qemb = embed_client.embed(prompt)
+print(f"  Query: {len(qemb)}D vector from {embed_label}")
 
 def cosine(a, b):
     dot = sum(x*y for x, y in zip(a, b))
     return dot / ((sum(x*x for x in a)**0.5) * (sum(x*x for x in b)**0.5) + 1e-10)
 
 reranked = sorted(
-    [(cosine(qemb, gemini.embed(c['content'])), c) for c in top_chunks],
+    [(cosine(qemb, embed_client.embed(c['content'])), c) for c in top_chunks],
     reverse=True
 )
 for rank, (score, c) in enumerate(reranked[:5], 1):

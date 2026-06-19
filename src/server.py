@@ -545,11 +545,42 @@ def create_memory(body: CreateChunkRequest) -> JSONResponse:
 
     repo().create_chunk(record)
 
-    # Real embeddings via Gemini: generate embedding and index in Qdrant.
-    # Best-effort — if either Gemini or Qdrant is unavailable, the chunk is
+    # Real embeddings via configured provider (Gemini or Ollama): embed and index in Qdrant.
+    # Best-effort — if the embedding provider or Qdrant is unavailable, the chunk is
     # still stored and the error is logged without failing the request.
     qs = qdrant_search()
-    if qs is not None and os.environ.get("GEMINI_API_KEY"):
+    cfg = get_config()
+    if qs is not None and cfg.llm.embedding_provider == "ollama":
+        try:
+            from src.retrieval.ollama_embeddings import OllamaEmbeddingClient
+
+            ollama_emb = OllamaEmbeddingClient()
+            embedding = ollama_emb.embed(body.content)
+
+            qs.upsert_chunk(
+                chunk_id=chunk_id,
+                content=body.content,
+                embedding=embedding,
+                metadata={
+                    "session_id": body.session_id,
+                    "tags": final_tags,
+                    "outcome_tag": final_outcome_tag,
+                    "source_file": body.source_file,
+                    "created_at": now,
+                },
+            )
+            logger.info(
+                "Indexed chunk %s in Qdrant (ollama, dim=%d)",
+                chunk_id, len(embedding),
+            )
+        except Exception as exc:
+            # Don't fail the request — chunk is already stored in Neo4j
+            logger.warning(
+                "Failed to index chunk %s in Qdrant (ollama): %s",
+                chunk_id, exc,
+            )
+    elif qs is not None and cfg.llm.embedding_provider != "ollama":
+        # Gemini (default when embedding_provider is not "ollama")
         try:
             from src.retrieval.gemini_embeddings import GeminiEmbeddingClient
 
@@ -569,13 +600,13 @@ def create_memory(body: CreateChunkRequest) -> JSONResponse:
                 },
             )
             logger.info(
-                "Indexed chunk %s in Qdrant (dim=%d)",
+                "Indexed chunk %s in Qdrant (gemini, dim=%d)",
                 chunk_id, len(embedding),
             )
         except Exception as exc:
             # Don't fail the request — chunk is already stored in Neo4j
             logger.warning(
-                "Failed to index chunk %s in Qdrant: %s",
+                "Failed to index chunk %s in Qdrant (gemini): %s",
                 chunk_id, exc,
             )
 
@@ -751,9 +782,22 @@ def retrieve(body: RetrieveRequest) -> JSONResponse:
     """
     from src.retrieval.engine import RetrievalEngine
 
-    # Generate query embedding via Gemini (best-effort)
+    # Generate query embedding via configured provider (best-effort)
     query_embedding = None
-    if os.environ.get("GEMINI_API_KEY"):
+    cfg = get_config()
+    if cfg.llm.embedding_provider == "ollama":
+        try:
+            from src.retrieval.ollama_embeddings import OllamaEmbeddingClient
+
+            ollama_emb = OllamaEmbeddingClient()
+            query_embedding = ollama_emb.embed(body.prompt_context)
+        except Exception as exc:
+            logger.warning(
+                "Failed to generate Ollama query embedding, falling back to tag-based search: %s",
+                exc,
+            )
+    elif cfg.llm.embedding_provider != "ollama":
+        # Gemini (default)
         try:
             from src.retrieval.gemini_embeddings import GeminiEmbeddingClient
 

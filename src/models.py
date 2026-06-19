@@ -37,6 +37,7 @@ class RelationshipType(str, Enum):
     FOLLOWS = "follows"
     CONTRADICTS = "contradicts"
     SAME_CONCEPT = "same_concept"
+    DUPLICATE = "duplicate"
 
 
 class TagTree(BaseModel):
