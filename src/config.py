@@ -45,6 +45,19 @@ class LLMConfig:
         default_factory=lambda: _getenv("OLLAMA_MODEL", "phi-4-mini")
     )
 
+    # Ollama embeddings (local chunk embedding — alternative to Gemini)
+    # qwen3:0.6b outputs 3584-dim vectors; nomic-embed-text outputs 768-dim.
+    ollama_embedding_model: str = field(
+        default_factory=lambda: _getenv("OLLAMA_EMBEDDING_MODEL", "qwen3:0.6b")
+    )
+    ollama_embedding_dim: int = field(
+        default_factory=lambda: int(_getenv("OLLAMA_EMBEDDING_DIM", "3584"))
+    )
+    # Set to "ollama" to use Ollama for embeddings instead of Gemini.
+    embedding_provider: str = field(
+        default_factory=lambda: _getenv("EMBEDDING_PROVIDER", "gemini")
+    )
+
     # BitNet (local LLM server, OpenAI-compatible HTTP)
     # Start with: ./scripts/start-llm-server.sh
     bitnet_host: str = field(

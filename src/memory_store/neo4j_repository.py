@@ -29,6 +29,7 @@ _REL_TYPE_PREREQUISITE = "PREREQUISITE"
 _REL_TYPE_FOLLOWS = "FOLLOWS"
 _REL_TYPE_CONTRADICTS = "CONTRADICTS"
 _REL_TYPE_SAME_CONCEPT = "SAME_CONCEPT"
+_REL_TYPE_DUPLICATE = "DUPLICATE"
 
 # Map each RelationshipType enum value to its Cypher relationship-type label.
 # Built from the enum at import time so adding a new RelationshipType value
@@ -40,6 +41,7 @@ _REL_TYPE_MAP: dict[RelationshipType, str] = {
     RelationshipType.FOLLOWS: _REL_TYPE_FOLLOWS,
     RelationshipType.CONTRADICTS: _REL_TYPE_CONTRADICTS,
     RelationshipType.SAME_CONCEPT: _REL_TYPE_SAME_CONCEPT,
+    RelationshipType.DUPLICATE: _REL_TYPE_DUPLICATE,
 }
 
 # Set of enum values (lowercase strings) accepted by create_edge at the boundary.
@@ -410,7 +412,7 @@ class Neo4jMemoryRepository:
             )
         cypher = f"""
         MATCH path = (start:Chunk {{chunk_id: $chunk_id}})
-                    -[r:SAME_TOOL_CALL|PREREQUISITE|FOLLOWS|CONTRADICTS|SAME_CONCEPT*1..{depth}]->
+                    -[r:SAME_TOOL_CALL|PREREQUISITE|FOLLOWS|CONTRADICTS|SAME_CONCEPT|DUPLICATE*1..{depth}]->
                     (end:Chunk)
         UNWIND relationships(path) AS rel
         WITH start, end, rel
