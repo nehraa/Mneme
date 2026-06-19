@@ -46,12 +46,13 @@ class LLMConfig:
     )
 
     # Ollama embeddings (local chunk embedding — alternative to Gemini)
-    # qwen3:0.6b outputs 3584-dim vectors; nomic-embed-text outputs 768-dim.
+    # qwen3-embedding:0.6b outputs 1024-dim vectors (verified June 19 2026);
+    # nomic-embed-text outputs 768-dim.
     ollama_embedding_model: str = field(
-        default_factory=lambda: _getenv("OLLAMA_EMBEDDING_MODEL", "qwen3:0.6b")
+        default_factory=lambda: _getenv("OLLAMA_EMBEDDING_MODEL", "qwen3-embedding:0.6b")
     )
     ollama_embedding_dim: int = field(
-        default_factory=lambda: int(_getenv("OLLAMA_EMBEDDING_DIM", "3584"))
+        default_factory=lambda: int(_getenv("OLLAMA_EMBEDDING_DIM", "1024"))
     )
     # Set to "ollama" to use Ollama for embeddings instead of Gemini.
     embedding_provider: str = field(

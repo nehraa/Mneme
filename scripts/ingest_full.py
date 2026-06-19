@@ -55,7 +55,6 @@ for _k, _v in _cfg.items():
         os.environ.setdefault(_k, _v)
 
 # Mneme imports — must come AFTER env is loaded
-from src.embedding.gemini_client import GeminiEmbeddingClient, GeminiEmbeddingError
 from src.ingestion.llm_client import MiniMaxClient
 
 logging.basicConfig(
@@ -63,6 +62,25 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 log = logging.getLogger("ingest_full")
+
+# ── Embedding client selection ─────────────────────────────────────────────
+# EMBEDDING_PROVIDER=ollama → local qwen3-embedding:0.6b (no rate limits)
+# EMBEDDING_PROVIDER=gemini → cloud Gemini Embedding 2 (default, 100 RPM cap)
+# Default = ollama since it's free, local, and rate-limit-free on this server.
+
+
+def make_embedding_client():
+    provider = os.environ.get("EMBEDDING_PROVIDER", "ollama").lower()
+    if provider == "ollama":
+        from src.retrieval.ollama_embeddings import OllamaEmbeddingClient
+        return OllamaEmbeddingClient(), "ollama"
+    elif provider == "gemini":
+        from src.embedding.gemini_client import GeminiEmbeddingClient, GeminiEmbeddingError
+        return GeminiEmbeddingClient(), "gemini"
+    else:
+        raise RuntimeError(
+            f"Unknown EMBEDDING_PROVIDER: {provider!r}. Use 'ollama' or 'gemini'."
+        )
 
 # ── Paths and constants ─────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -279,7 +297,8 @@ def process_file(
     path: Path,
     source_kind: str,
     minimax: MiniMaxClient,
-    embeddings: GeminiEmbeddingClient,
+    embeddings,
+    provider_kind: str,
     cap: int,
 ) -> list[dict[str, Any]]:
     """Chunk + embed one file. Returns list of chunk records (without manifest
@@ -309,22 +328,32 @@ def process_file(
     if not chunk_dicts:
         return []
 
-    # Embed each chunk's content
-    texts = [c.get("content", "")[:2000] for c in chunk_dicts]
-    try:
-        vectors = embeddings.embed_batch(texts, task_type="RETRIEVAL_DOCUMENT")
-        time.sleep(EMBEDDING_BATCH_DELAY)  # cool down Gemini between batches
-    except GeminiEmbeddingError as exc:
-        log.warning("embedding_failed path=%s err=%s — chunks without vectors", path, exc)
+    # Embed each chunk's content. SKIP_EMBEDDINGS env var disables this entirely
+    # so we can focus on chunking throughput without hitting Gemini RPM caps.
+    skip_embeddings = os.environ.get("MNEME_SKIP_EMBEDDINGS", "").lower() in ("1", "true", "yes")
+    if skip_embeddings:
         vectors = [None] * len(chunk_dicts)
+    else:
+        texts = [c.get("content", "")[:2000] for c in chunk_dicts]
+        try:
+            vectors = embeddings.embed_batch(texts)
+            # Cool-down: only meaningful for cloud providers (Gemini rate limits).
+            # Local Ollama needs no delay — let it rip.
+            if provider_kind == "gemini":
+                time.sleep(EMBEDDING_BATCH_DELAY)
+        except Exception as exc:
+            log.warning("embedding_failed path=%s err=%s — chunks without vectors", path, exc)
+            vectors = [None] * len(chunk_dicts)
 
     records = []
     for chunk, vec in zip(chunk_dicts, vectors):
         rec = dict(chunk)
         rec["source_file"] = str(path)
         rec["source_kind"] = source_kind
-        rec["embedding_model"] = embeddings._model if vec else None
-        rec["embedding_dim"] = embeddings._dim if vec else None
+        # Embedding fields are provider-agnostic — both clients expose _model
+        # and embed_batch() returns list[list[float]].
+        rec["embedding_model"] = getattr(embeddings, "_model", None) if vec else None
+        rec["embedding_dim"] = len(vec) if vec else None
         rec["embedding"] = vec
         rec["linked_chunks"] = [
             r["target_chunk_id"]
@@ -395,13 +424,13 @@ def main() -> int:
     # Init clients
     try:
         minimax = MiniMaxClient()
-        embeddings = GeminiEmbeddingClient()
+        embeddings, provider_kind = make_embedding_client()
     except Exception as exc:
         log.error("client_init_failed err=%s", exc)
         return 1
 
     log.info("minimax model=%s base=%s", minimax._model, minimax._base_url)
-    log.info("embeddings model=%s dim=%d", embeddings._model, embeddings._dim)
+    log.info("embeddings provider=%s model=%s", provider_kind, getattr(embeddings, "_model", "?"))
     log.info("workers=%d", args.workers)
 
     # Load existing chunks (so we can append, not overwrite)
@@ -449,7 +478,7 @@ def main() -> int:
     def process_one(idx: int, total: int, path: Path, kind: str, cap: int) -> tuple[Path, int, str | None]:
         """Process one file. Returns (path, chunks_added, error_msg)."""
         try:
-            records = process_file(path, kind, minimax, embeddings, cap)
+            records = process_file(path, kind, minimax, embeddings, provider_kind, cap)
         except Exception as exc:
             log.warning("file_failed path=%s err=%s", path, exc)
             return (path, 0, str(exc))

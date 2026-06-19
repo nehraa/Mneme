@@ -22,7 +22,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "qwen3:0.6b"
+DEFAULT_MODEL = "qwen3-embedding:0.6b"
 DEFAULT_BASE_URL = "http://localhost:11434"
 DEFAULT_TIMEOUT = 60.0
 
