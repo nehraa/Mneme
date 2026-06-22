@@ -32,6 +32,10 @@ GRAPH_BOOST_WEIGHT = 0.2
 GRAPH_HOPS = 1
 QDRANT_WEIGHT = 1.5  # cosine similarity dominates when present (June 19 2026)
 
+# Skill content is authoritative documentation; session content is noisy chat-log.
+# Boost outcome_weight for skill chunks so they surface above session noise (MNEME 1C).
+SKILL_OUTCOME_BOOST = 1.5
+
 # Category weights — outcome tags are most important (failure context),
 # error tags are second (specific failure mode), tool tags are third (area).
 CATEGORY_WEIGHTS = {
@@ -374,6 +378,9 @@ class RetrievalEngine:
 
             outcome_tag = chunk.get("outcome_tag", "work_done")
             outcome_weight = OUTCOME_PRIORITY.get(outcome_tag, 0.2)
+            # Skills are authoritative; session chat-log is noisy — boost skills (MNEME 1C).
+            if chunk.get("source_kind") == "skill":
+                outcome_weight *= SKILL_OUTCOME_BOOST
 
             # Recency boost
             recency_boost = 0.0

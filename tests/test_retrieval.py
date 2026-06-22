@@ -374,3 +374,52 @@ class TestScoringComponents:
         scores = {c["chunk_id"]: c["score"] for c in scored}
         assert scores["mem_x"] == pytest.approx(0.75)
         assert scores["mem_y"] == pytest.approx(0.0)
+
+    # ── Source-kind boost (skill > session) ──────────────────────────────
+
+    def test_score_chunks_skill_chunk_scores_higher_than_session(self):
+        """MNEME plan 1C: skill chunks get a 1.5x boost on outcome_weight,
+        so an identical-content skill chunk must score higher than a session
+        chunk. Skills are authoritative documentation; sessions are noisy
+        chat logs that shouldn't drown them out."""
+        detected = ["tool=auth"]
+        base = {
+            "tags": ["tool=auth", "outcome=work_done"],
+            "outcome_tag": "work_done",
+            "linked_chunks": [],
+            "last_accessed": None,
+            "qdrant_score": 0.0,
+        }
+        skill_chunk = {**base, "chunk_id": "mem_skill", "source_kind": "skill"}
+        session_chunk = {**base, "chunk_id": "mem_session", "source_kind": "session"}
+
+        scored = self.engine._score_chunks([skill_chunk, session_chunk], detected)
+        scores = {c["chunk_id"]: c["score"] for c in scored}
+
+        # Skill must outrank session by the boost amount applied to outcome_weight.
+        # tag_match_score = 1.0 (exact), OUTCOME_PRIORITY["work_done"] = 0.6
+        # delta = 0.6 * 1.0 * (1.5 - 1.0) = 0.3
+        assert scores["mem_skill"] > scores["mem_session"]
+        assert scores["mem_skill"] == pytest.approx(scores["mem_session"] + 0.3)
+
+    def test_score_chunks_non_skill_source_kinds_unaffected(self):
+        """MNEME plan 1C: the 1.5x boost must apply ONLY when source_kind == 'skill'.
+        Session and log chunks must score identically to chunks missing the field."""
+        detected = ["tool=auth"]
+        base = {
+            "tags": ["tool=auth", "outcome=work_done"],
+            "outcome_tag": "work_done",
+            "linked_chunks": [],
+            "last_accessed": None,
+            "qdrant_score": 0.0,
+        }
+        missing = {**base, "chunk_id": "mem_missing"}  # no source_kind field
+        session = {**base, "chunk_id": "mem_session", "source_kind": "session"}
+        log = {**base, "chunk_id": "mem_log", "source_kind": "log"}
+
+        scored = self.engine._score_chunks([missing, session, log], detected)
+        scores = {c["chunk_id"]: c["score"] for c in scored}
+
+        # All three should score identically (boost does not apply).
+        assert scores["mem_missing"] == pytest.approx(scores["mem_session"])
+        assert scores["mem_session"] == pytest.approx(scores["mem_log"])
