@@ -203,6 +203,31 @@ _PROSE_INTENT_RE = re.compile(
 )
 
 
+def _extract_from_parsed_json(parsed: dict, raw: str) -> IntentResult | None:
+    """
+    Build an IntentResult from an already-parsed JSON dict.
+
+    Performs a case-insensitive lookup for the ``intent`` and ``detected_tags``
+    keys (Falcon3/BitNet sometimes write ``detected_Tags``), and validates
+    ``intent`` against ``INTENT_TAXONOMY``. Returns ``None`` when the parsed
+    dict contains an intent value that isn't a real taxonomy label — this
+    lets the caller fall through to regex/prose strategies instead of
+    accepting the model's echoed template literal (e.g. the raw
+    ``<continue_previous_work|...>`` string the model sometimes emits).
+    """
+    intent = next(
+        (parsed[k] for k in parsed if k.lower() == "intent"),
+        "general",
+    )
+    tags = next(
+        (parsed[k] for k in parsed if k.lower() == "detected_tags"),
+        [],
+    )
+    if intent not in INTENT_TAXONOMY:
+        return None
+    return IntentResult(intent=intent, detected_tags=tags, raw_response=raw)
+
+
 def _parse_response(raw: str) -> IntentResult:
     """
     Parse JSON intent from the LLM response, with graded fallbacks.
@@ -232,30 +257,10 @@ def _parse_response(raw: str) -> IntentResult:
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
 
-    def _extract(parsed: dict) -> IntentResult | None:
-        # Case-insensitive lookup: Falcon3/BitNet sometimes write "detected_Tags"
-        intent = next(
-            (parsed[k] for k in parsed if k.lower() == "intent"),
-            "general",
-        )
-        tags = next(
-            (parsed[k] for k in parsed if k.lower() == "detected_tags"),
-            [],
-        )
-        # If the JSON parsed but the intent is not in the taxonomy, treat this
-        # as a parse failure — BitNet sometimes echoes the raw template
-        # literal ``<continue_previous_work|retry_previous_attempt|...>`` as
-        # the intent value, which the JSON parser happily accepts but which
-        # is not a real label. Falling through to the regex fallbacks lets us
-        # pick the first quoted label or the prose signal.
-        if intent not in INTENT_TAXONOMY:
-            return None
-        return IntentResult(intent=intent, detected_tags=tags, raw_response=raw)
-
     # Strategy 1: full-string JSON parse.
     try:
         parsed = json.loads(text)
-        result = _extract(parsed)
+        result = _extract_from_parsed_json(parsed, raw)
         if result is not None:
             return result
     except json.JSONDecodeError:
@@ -266,7 +271,7 @@ def _parse_response(raw: str) -> IntentResult:
     if match:
         try:
             parsed = json.loads(match.group(1))
-            result = _extract(parsed)
+            result = _extract_from_parsed_json(parsed, raw)
             if result is not None:
                 return result
         except json.JSONDecodeError:
