@@ -204,6 +204,126 @@ class MiniMaxClient:
         )
 
     @staticmethod
+    def _find_balanced_blocks(text: str) -> list[str]:
+        """Find spans of text where `{...}` is properly balanced (depth 0 → 0),
+        correctly tracking strings and escapes. Returns the matched substrings
+        in left-to-right order of their opening brace.
+
+        Tries every `{` as a potential start of a balanced block, so an
+        unclosed/malformed opening `{` earlier in the text doesn't prevent
+        finding well-formed objects that follow it.
+        """
+        blocks: list[str] = []
+        for start_idx in range(len(text)):
+            if text[start_idx] != "{":
+                continue
+            end_idx = MiniMaxClient._find_matching_close(text, start_idx)
+            if end_idx is not None:
+                blocks.append(text[start_idx : end_idx + 1])
+        return blocks
+
+    @staticmethod
+    def _find_matching_close(text: str, open_idx: int) -> int | None:
+        """Given `text[open_idx] == '{'`, return the index of the matching `}`
+        or None if the block is never closed (or contains a stray `}` that
+        drops depth before the end). Tracks strings, escapes, and arrays."""
+        depth = 0
+        array_depth = 0
+        in_string = False
+        escape = False
+        for i in range(open_idx, len(text)):
+            ch = text[i]
+            if escape:
+                escape = False
+                continue
+            if in_string:
+                if ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return i
+                if depth < 0:
+                    return None
+            elif ch == "[":
+                array_depth += 1
+            elif ch == "]":
+                array_depth -= 1
+                # Array mismatch inside an object — bail so we don't return
+                # a span the JSON parser will reject anyway.
+                if array_depth < 0:
+                    return None
+        return None
+
+    @staticmethod
+    def _repair_truncated_json(text: str) -> str | None:
+        """Attempt to repair JSON that was truncated mid-stream.
+
+        Walks the text tracking strings, arrays, and objects, and appends the
+        appropriate closing characters in reverse order to make it valid.
+        Returns the repaired string, or None if repair isn't possible.
+
+        The repair only appends closers — it does NOT truncate trailing junk.
+        Truncation is risky because the safest truncation point is hard to
+        identify (mid-value vs mid-key vs after a complete value). The
+        caller should run balanced-block strategies first; this is the
+        last-ditch fallback for genuinely-truncated output.
+        """
+        stack: list[str] = []  # "}" or "]" — closing chars to append in reverse
+        in_string = False
+        escape = False
+        for i, ch in enumerate(text):
+            if escape:
+                escape = False
+                continue
+            if in_string:
+                if ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                stack.append("}")
+            elif ch == "[":
+                stack.append("]")
+            elif ch == "}" or ch == "]":
+                if stack and stack[-1] == ch:
+                    stack.pop()
+        if not stack:
+            return None  # already balanced — nothing to repair
+
+        # Close any unterminated string, then pop the stack in reverse.
+        suffix = ('"' if in_string else "") + "".join(reversed(stack))
+
+        candidate = text + suffix
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            return None
+
+    @staticmethod
+    def _looks_like_chunk(obj: Any) -> bool:
+        """True if `obj` appears to be a single chunk dict (has chunk_id and
+        content fields). Used to recognize recovery cases where we found a
+        balanced inner block but the outer `{chunks: [...]}` wrapper was lost
+        to truncation."""
+        return (
+            isinstance(obj, dict)
+            and "chunk_id" in obj
+            and "content" in obj
+        )
+
+    @staticmethod
     def _parse_json_response(text: str) -> dict[str, Any]:
         """Extract a JSON object from LLM output that may have surrounding prose,
         markdown fences, or truncation artifacts. Returns the parsed dict.
@@ -238,7 +358,65 @@ class MiniMaxClient:
             except json.JSONDecodeError:
                 continue
 
-        # 4. Couldn't parse — give caller the raw text so it can log
+        # 4. Strategy A — find balanced {...} blocks and try the largest first.
+        #    Tracks strings/escapes correctly so trailing prose, code fences,
+        #    and embedded examples don't poison the parse.
+        balanced = MiniMaxClient._find_balanced_blocks(text)
+        # Collect candidate parses from every strategy; pick the best at the end
+        # (a wrapping {chunks: [...]} object beats a single-chunk recovery).
+        candidates: list[dict[str, Any]] = []
+
+        def _try_load(blob: str) -> dict[str, Any] | None:
+            try:
+                parsed = json.loads(blob)
+            except json.JSONDecodeError:
+                return None
+            return parsed if isinstance(parsed, dict) else None
+
+        for block in sorted(balanced, key=len, reverse=True):
+            parsed = _try_load(block)
+            if parsed is not None:
+                candidates.append(parsed)
+
+        # 5. Strategy B — first balanced block, ignore everything after.
+        #    Useful when the LLM emitted a complete object followed by a
+        #    malformed-looking fragment (e.g. "{not actually json, broken").
+        for block in balanced:
+            parsed = _try_load(block)
+            if parsed is not None and parsed not in candidates:
+                candidates.append(parsed)
+
+        # 6. Strategy C — try to repair truncated JSON (close open strings,
+        #    arrays, objects in correct order). Best chance of recovering the
+        #    full {chunks: [...]} wrapper when output was cut mid-stream.
+        repaired = MiniMaxClient._repair_truncated_json(text)
+        if repaired is not None:
+            parsed = _try_load(repaired)
+            if parsed is not None and parsed not in candidates:
+                candidates.append(parsed)
+
+        # 7. Pick the best candidate: a wrapping shape wins over single-chunk
+        #    recovery. If we only have single-chunk candidates, wrap the first
+        #    one so the caller still gets useful data instead of an empty
+        #    `chunks` list.
+        for cand in candidates:
+            if "chunks" in cand and isinstance(cand.get("chunks"), list):
+                # Return a shallow copy so we don't mutate the candidate list.
+                return {
+                    **cand,
+                    "cross_chunk_relationships": cand.get(
+                        "cross_chunk_relationships", []
+                    ),
+                }
+
+        for cand in candidates:
+            if MiniMaxClient._looks_like_chunk(cand):
+                return {
+                    "chunks": [cand],
+                    "cross_chunk_relationships": [],
+                }
+
+        # 8. Couldn't parse — give caller the raw text so it can log
         raise ValueError(
             f"Could not parse JSON from LLM response (len={len(text)}): "
             f"{text[:200]}"
