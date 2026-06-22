@@ -105,6 +105,17 @@ INTENT_SYSTEM_PROMPT = """Detect intent for the user prompt. Reply ONLY with val
 Tags: outcome=failed|work_done|successfully_called|stopped|no_tool_called, tool=auth|db|http|file_io|llm, error=token_expired|timeout|auth_rejected|network."""
 
 
+# Valid intent labels. Keep this list as the single source of truth — both
+# the parser fallbacks and the test taxonomy reference it. Don't duplicate
+# these strings in `_parse_response`.
+INTENT_TAXONOMY: tuple[str, ...] = (
+    "continue_previous_work",
+    "retry_previous_attempt",
+    "fix_previous_failure",
+    "general",
+)
+
+
 # ── Result type ──────────────────────────────────────────────────────────────
 
 
@@ -125,7 +136,7 @@ class IntentResult:
             f"({_cfg_host()}:{_cfg_port()}) with {_cfg_model()}"
         )
         if self.degraded:
-            impl_note += " [DEGRADED: server unreachable, using keyword fallback]"
+            impl_note += " [DEGRADED: fallback path used (server unreachable, malformed JSON, or unparseable LLM output)]"
         return {
             "degraded": self.degraded,
             "intent": self.intent,
@@ -173,12 +184,46 @@ def _chat_complete(
 
 # ── Output parsing ───────────────────────────────────────────────────────────
 
+# Matches a bare taxonomy label in double quotes anywhere in the text. Anchored
+# only at the boundaries of the captured group so it doesn't accidentally span
+# into surrounding text. Used by fallback (b).
+_QUOTED_LABEL_RE = re.compile(
+    r'"(' + "|".join(re.escape(label) for label in INTENT_TAXONOMY) + r')"'
+)
+
+# Matches prose patterns like:
+#   "intent is general"
+#   "intent: retry_previous_attempt"
+#   "intent = fix_previous_failure"
+# Captured group is validated against INTENT_TAXONOMY before use. Used by
+# fallback (c).
+_PROSE_INTENT_RE = re.compile(
+    r"\bintent\b\s*(?:is\s*)?[:=]?\s*[\"']?(\w+)[\"']?",
+    re.IGNORECASE,
+)
+
 
 def _parse_response(raw: str) -> IntentResult:
     """
-    Parse JSON intent from the LLM response.
+    Parse JSON intent from the LLM response, with graded fallbacks.
 
-    Tries full-string parse first, then a regex search for the first {...} block.
+    BitNet (Falcon3-1B-Instruct) doesn't always emit clean JSON. The parser
+    tries the following strategies IN ORDER, returning the first one that
+    yields a usable result:
+
+      1. Full-string JSON parse (clean LLM output → degraded=False)
+      2. Regex-extracted ``{...}`` block (clean JSON wrapped in prose →
+         degraded=False)
+      3. Quoted taxonomy label anywhere in the text (fallback b — e.g.
+         ``The intent is "general"`` or ``"retry_previous_attempt"`` →
+         degraded=True)
+      4. ``intent is X`` / ``intent: X`` prose pattern (fallback c →
+         degraded=True)
+      5. Last resort: ``intent="general"``, empty tags, degraded=True
+
+    Strategies 1–2 return ``degraded=False`` because the LLM produced a
+    structured payload. Strategies 3–5 mark ``degraded=True`` so callers can
+    tell the result came from a parser fallback rather than the model.
     """
     text = raw.strip()
 
@@ -187,7 +232,7 @@ def _parse_response(raw: str) -> IntentResult:
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
 
-    def _extract(parsed: dict) -> IntentResult:
+    def _extract(parsed: dict) -> IntentResult | None:
         # Case-insensitive lookup: Falcon3/BitNet sometimes write "detected_Tags"
         intent = next(
             (parsed[k] for k in parsed if k.lower() == "intent"),
@@ -197,23 +242,68 @@ def _parse_response(raw: str) -> IntentResult:
             (parsed[k] for k in parsed if k.lower() == "detected_tags"),
             [],
         )
+        # If the JSON parsed but the intent is not in the taxonomy, treat this
+        # as a parse failure — BitNet sometimes echoes the raw template
+        # literal ``<continue_previous_work|retry_previous_attempt|...>`` as
+        # the intent value, which the JSON parser happily accepts but which
+        # is not a real label. Falling through to the regex fallbacks lets us
+        # pick the first quoted label or the prose signal.
+        if intent not in INTENT_TAXONOMY:
+            return None
         return IntentResult(intent=intent, detected_tags=tags, raw_response=raw)
 
+    # Strategy 1: full-string JSON parse.
     try:
         parsed = json.loads(text)
-        return _extract(parsed)
+        result = _extract(parsed)
+        if result is not None:
+            return result
     except json.JSONDecodeError:
         pass
 
+    # Strategy 2: extract a {...} block from prose and parse it.
     match = re.search(r"(\{[\s\S]+\})", text)
     if match:
         try:
             parsed = json.loads(match.group(1))
-            return _extract(parsed)
+            result = _extract(parsed)
+            if result is not None:
+                return result
         except json.JSONDecodeError:
             pass
 
-    return IntentResult(intent="general", detected_tags=[], raw_response=raw)
+    # Strategy 3 (fallback b): find a quoted taxonomy label anywhere in the
+    # raw text. Picks the FIRST match; once we've found one, we stop, even if
+    # it appears inside a tag string (taxonomy labels are long, distinct
+    # snake_case strings, so the risk of confusion with tag values is low).
+    quoted = _QUOTED_LABEL_RE.search(text)
+    if quoted:
+        return IntentResult(
+            intent=quoted.group(1),
+            detected_tags=[],
+            raw_response=raw,
+            degraded=True,
+        )
+
+    # Strategy 4 (fallback c): prose pattern "intent is X" / "intent: X".
+    prose = _PROSE_INTENT_RE.search(text)
+    if prose:
+        candidate = prose.group(1).strip().lower()
+        if candidate in INTENT_TAXONOMY:
+            return IntentResult(
+                intent=candidate,
+                detected_tags=[],
+                raw_response=raw,
+                degraded=True,
+            )
+
+    # Strategy 5 (last resort): no structured signal at all.
+    return IntentResult(
+        intent="general",
+        detected_tags=[],
+        raw_response=raw,
+        degraded=True,
+    )
 
 
 # ── Keyword fallback ─────────────────────────────────────────────────────────

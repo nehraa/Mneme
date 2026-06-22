@@ -7,6 +7,7 @@ Verifies:
 - Scoring helpers compute the correct tag-match, embedding, and graph-boost
   contributions
 - POST /retrieve endpoint returns correct structure
+- BitNet _parse_response falls back gracefully on messy LLM output (MNEME plan 1A)
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.memory_store.repository import InMemoryMemoryRepository
+from src.retrieval.bitnet_client import INTENT_TAXONOMY, IntentResult, _parse_response
 from src.retrieval.engine import RetrievalEngine
 from src.retrieval.intent_detector import IntentDetector
 from src.server import app
@@ -423,3 +425,189 @@ class TestScoringComponents:
         # All three should score identically (boost does not apply).
         assert scores["mem_missing"] == pytest.approx(scores["mem_session"])
         assert scores["mem_session"] == pytest.approx(scores["mem_log"])
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# MNEME plan 1A: BitNet _parse_response must fall back gracefully on messy LLM
+# output instead of returning a placeholder / empty tags.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TestBitNetParseResponse:
+    """Tests for `src.retrieval.bitnet_client._parse_response`.
+
+    BitNet (Falcon3-1B-Instruct) doesn't always emit clean JSON. It may:
+      - wrap JSON in prose ("Sure! { ... }")
+      - emit the raw template literal ("intent: <continue_previous_work|...>")
+      - emit pure prose ("The intent is general for this query")
+      - emit garbage
+
+    The parser must extract a real intent label from any of those and mark the
+    result `degraded=True` whenever a fallback strategy was used.
+    """
+
+    # ── Clean JSON path: no fallback, degraded=False ────────────────────
+
+    def test_clean_json_extracts_intent_not_degraded(self):
+        """Clean JSON → real intent + tags, degraded stays False (real LLM path)."""
+        raw = '{"intent": "continue_previous_work", "detected_tags": ["tool=auth"]}'
+        result = _parse_response(raw)
+        assert result.intent == "continue_previous_work"
+        assert result.detected_tags == ["tool=auth"]
+        assert result.degraded is False
+
+    def test_code_fenced_json_extracts_intent_not_degraded(self):
+        """BitNet sometimes wraps JSON in ```json fences; still clean enough."""
+        raw = '```json\n{"intent": "retry_previous_attempt", "detected_tags": []}\n```'
+        result = _parse_response(raw)
+        assert result.intent == "retry_previous_attempt"
+        assert result.degraded is False
+
+    def test_json_with_surrounding_prose_extracts_via_block_regex_not_degraded(self):
+        """Prose-wrapped JSON like `Sure! {...}` — existing regex catches the
+        {...} block, so the result is still considered a clean parse."""
+        raw = 'Sure! Here you go: {"intent": "fix_previous_failure", "detected_tags": ["tool=db"]} 👍'
+        result = _parse_response(raw)
+        assert result.intent == "fix_previous_failure"
+        assert result.detected_tags == ["tool=db"]
+        assert result.degraded is False
+
+    # ── Fallback (b): quoted intent label anywhere in text ──────────────
+
+    def test_template_literal_with_taxonomy_label_picks_label_and_marks_degraded(self):
+        """BitNet returns the raw template string with one of the four labels
+        picked. Parser must extract it and mark degraded=True."""
+        raw = '{"intent": "<continue_previous_work|retry_previous_attempt|fix_previous_failure|general>", "detected_tags": []}'
+        result = _parse_response(raw)
+        # The { ... } block is not valid JSON (the angle brackets break it),
+        # so the JSON paths fail and fallback (b) catches the quoted label.
+        assert result.intent in INTENT_TAXONOMY
+        assert result.degraded is True
+
+    def test_prose_with_quoted_intent_label_is_degraded(self):
+        """`The intent is "general" here.` — quoted label after prose."""
+        raw = 'Looking at this prompt, the intent is "general" with no tags.'
+        result = _parse_response(raw)
+        assert result.intent == "general"
+        assert result.degraded is True
+
+    def test_quoted_retry_label_in_prose_is_degraded(self):
+        raw = 'My guess: "retry_previous_attempt" — tags: tool=auth.'
+        result = _parse_response(raw)
+        assert result.intent == "retry_previous_attempt"
+        assert result.degraded is True
+
+    # ── Fallback (c): prose patterns like "intent is X" / "intent: X" ───
+
+    def test_prose_intent_is_general_is_degraded(self):
+        """Plain prose: 'The intent is general for this query.' → 'general'."""
+        raw = "The intent is general for this query."
+        result = _parse_response(raw)
+        assert result.intent == "general"
+        assert result.degraded is True
+
+    def test_prose_intent_colon_retry_is_degraded(self):
+        raw = "Looking at this, intent: retry_previous_attempt."
+        result = _parse_response(raw)
+        assert result.intent == "retry_previous_attempt"
+        assert result.degraded is True
+
+    def test_prose_intent_with_short_label_is_degraded(self):
+        """`intent: fix` — short label that's still in the taxonomy? No:
+        'fix' alone isn't a valid label, so this must NOT match fallback (c)."""
+        raw = "intent: fix"
+        result = _parse_response(raw)
+        # 'fix' is not in taxonomy, so fallback (c) must skip it.
+        # Final fallback (d) returns 'general'.
+        assert result.intent == "general"
+        assert result.degraded is True
+
+    # ── Fallback (d): last-resort "general" ─────────────────────────────
+
+    def test_garbage_input_falls_back_to_general_degraded(self):
+        """Complete gibberish must not crash; it falls back to general/degraded."""
+        raw = "asdf123!@# ~~~ totally not json"
+        result = _parse_response(raw)
+        assert result.intent == "general"
+        assert result.detected_tags == []
+        assert result.degraded is True
+
+    def test_empty_string_falls_back_to_general_degraded(self):
+        raw = ""
+        result = _parse_response(raw)
+        assert result.intent == "general"
+        assert result.detected_tags == []
+        assert result.degraded is True
+
+    # ── Five-plus real-style prompts that previously hit the placeholder ─
+
+    @pytest.mark.parametrize(
+        "raw,expected_intent",
+        [
+            # BitNet echoing the system-prompt template then clarifying in prose:
+            (
+                'Based on the prompt: {"intent": "<continue_previous_work|retry_previous_attempt|fix_previous_failure|general>", "detected_tags": []}. In other words, the intent is continue_previous_work.',
+                "continue_previous_work",
+            ),
+            # BitNet trailing the label after a colon:
+            (
+                "Analyzing... intent: general. No specific tags detected.",
+                "general",
+            ),
+            # BitNet wrapping JSON badly so JSONDecodeError triggers, but the
+            # first quoted label is still recoverable:
+            (
+                'Output: "fix_previous_failure" (broken JSON follow-on: {not json)',
+                "fix_previous_failure",
+            ),
+            # BitNet enumerating choices then stating intent in prose:
+            (
+                "Choices were continue_previous_work, retry_previous_attempt, fix_previous_failure, general. The intent is retry_previous_attempt.",
+                "retry_previous_attempt",
+            ),
+            # BitNet partially-formatted JSON with the intent unquoted:
+            (
+                '{intent: continue_previous_work, detected_tags: ["tool=auth"]}',
+                "continue_previous_work",
+            ),
+        ],
+    )
+    def test_real_sample_prompts_return_real_label(self, raw, expected_intent):
+        """Each of these inputs previously produced a placeholder / empty
+        result. They must now return a real intent label from the taxonomy."""
+        result = _parse_response(raw)
+        assert result.intent == expected_intent, (
+            f"input {raw!r} produced {result.intent!r}, expected {expected_intent!r}"
+        )
+        assert result.intent in INTENT_TAXONOMY
+
+    # ── Backward compat: existing JSON-only behavior unchanged ──────────
+
+    def test_clean_json_does_not_set_degraded(self):
+        """MNEME plan 1A constraint: clean JSON must remain degraded=False so
+        existing callers see no change in their manifest."""
+        raw = '{"intent": "general", "detected_tags": ["tool=auth", "outcome=failed"]}'
+        result = _parse_response(raw)
+        assert result.degraded is False
+        assert result.intent == "general"
+        assert result.detected_tags == ["tool=auth", "outcome=failed"]
+        assert result.raw_response == raw
+
+    def test_to_manifest_includes_degraded_field(self):
+        """`to_manifest()` already includes the degraded key — verify it stays."""
+        result = IntentResult(intent="general", detected_tags=[], raw_response="x")
+        manifest = result.to_manifest()
+        assert "degraded" in manifest
+        assert manifest["degraded"] is False
+
+    # ── Constants ──────────────────────────────────────────────────────
+
+    def test_intent_taxonomy_contains_expected_labels(self):
+        """INTENT_TAXONOMY must contain exactly the four valid labels."""
+        assert set(INTENT_TAXONOMY) == {
+            "continue_previous_work",
+            "retry_previous_attempt",
+            "fix_previous_failure",
+            "general",
+        }
+
