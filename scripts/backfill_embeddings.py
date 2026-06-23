@@ -191,12 +191,15 @@ def main() -> int:
                 # Edge case: shouldn't happen given our indexing
                 pass
 
-    new_content = "\n".join(output_lines)
-    if not new_content.endswith("\n"):
-        new_content += "\n"
-
-    TMP_PATH.write_text(new_content)
-    print(f"Temp file written: {TMP_PATH} ({len(new_content):,} bytes)")
+    # Stream-write line-by-line to avoid building an ~780MB string in memory
+    with open(TMP_PATH, "w", encoding="utf-8") as out_f:
+        for line in output_lines:
+            out_f.write(line)
+            out_f.write("\n")
+        out_f.flush()
+        os.fsync(out_f.fileno())
+    TMP_PATH_SIZE = TMP_PATH.stat().st_size
+    print(f"Temp file written: {TMP_PATH} ({TMP_PATH_SIZE:,} bytes)")
 
     # Atomic rename
     os.replace(TMP_PATH, DATA_PATH)
