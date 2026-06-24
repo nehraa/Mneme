@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "qwen3-embedding:0.6b"
 DEFAULT_BASE_URL = "http://localhost:11434"
-DEFAULT_TIMEOUT = 60.0
+DEFAULT_TIMEOUT = 120.0
 
 
 def _cosine(v1: list[float], v2: list[float]) -> float:

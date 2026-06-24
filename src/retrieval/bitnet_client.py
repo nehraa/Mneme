@@ -30,14 +30,18 @@ ENV VARS:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 # ── Paths (kept for backwards compat / debugging) ────────────────────────────
@@ -100,9 +104,11 @@ def _base_url(host: str, port: int) -> str:
 
 # ── Intent detection prompt ─────────────────────────────────────────────────
 
-INTENT_SYSTEM_PROMPT = """Detect intent for the user prompt. Reply ONLY with valid JSON, no prose, no fences:
-{"intent": "<continue_previous_work|retry_previous_attempt|fix_previous_failure|general>", "detected_tags": ["tag1"]}
-Tags: outcome=failed|work_done|successfully_called|stopped|no_tool_called, tool=auth|db|http|file_io|llm, error=token_expired|timeout|auth_rejected|network."""
+INTENT_SYSTEM_PROMPT = """Detect intent for the user prompt. Reply ONLY with valid JSON, no prose, no fences.
+Example shape: {"intent": "general", "detected_tags": ["tool=auth"]}
+Pick exactly one intent from: continue_previous_work, retry_previous_attempt, fix_previous_failure, general.
+Pick zero or more tags from: outcome=failed, outcome=work_done, outcome=successfully_called, outcome=stopped, outcome=no_tool_called, tool=auth, tool=db, tool=http, tool=file_io, tool=llm, error=token_expired, error=timeout, error=auth_rejected, error=network.
+Output JSON only. No angle brackets. No placeholder text."""
 
 
 # Valid intent labels. Keep this list as the single source of truth — both
@@ -214,6 +220,12 @@ def _extract_from_parsed_json(parsed: dict, raw: str) -> IntentResult | None:
     lets the caller fall through to regex/prose strategies instead of
     accepting the model's echoed template literal (e.g. the raw
     ``<continue_previous_work|...>`` string the model sometimes emits).
+
+    Also rejects responses where the model echoed the ``"tag1"`` placeholder
+    in ``detected_tags`` or returned a pipe-separated template string for
+    ``intent`` (e.g. ``"a|b|c"``). These are not real values and contaminate
+    the downstream tag-match scoring; falling through to the cascade is safer
+    than emitting them as ``degraded=False``.
     """
     intent = next(
         (parsed[k] for k in parsed if k.lower() == "intent"),
@@ -224,6 +236,13 @@ def _extract_from_parsed_json(parsed: dict, raw: str) -> IntentResult | None:
         [],
     )
     if intent not in INTENT_TAXONOMY:
+        return None
+    if isinstance(intent, str) and ("<" in intent or ">" in intent or "|" in intent):
+        return None
+    if isinstance(tags, list) and any(
+        isinstance(t, str) and t.strip().lower() in ("tag1", "<tag1>", "tag2", "tag3")
+        for t in tags
+    ):
         return None
     return IntentResult(intent=intent, detected_tags=tags, raw_response=raw)
 
@@ -345,6 +364,179 @@ def _keyword_fallback(prompt_context: str) -> IntentResult:
     )
 
 
+# ── Cascade counters ─────────────────────────────────────────────────────────
+#
+# These counters track how many times each intent-detection path served a call.
+# Exposed via get_intent_stats() and read by the /dev/stats endpoint so operators
+# can monitor fallback behavior without grepping logs.
+#
+# Thread safety: a single lock guards the dict because concurrent requests on the
+# retrieval server all share the same counters and Python dict updates are not
+# atomic under the GIL for compound operations.
+
+_INTENT_STATS: dict[str, int] = {
+    "bitnet_ok": 0,
+    "bitnet_fail": 0,
+    "minimax_ok": 0,
+    "minimax_fail": 0,
+    "keyword": 0,
+}
+_INTENT_STATS_LOCK = threading.Lock()
+
+
+def _inc(key: str) -> None:
+    """Increment a counter under the stats lock."""
+    with _INTENT_STATS_LOCK:
+        _INTENT_STATS[key] = _INTENT_STATS.get(key, 0) + 1
+
+
+def get_intent_stats() -> dict[str, int]:
+    """Snapshot of the intent-detection counters (safe to call concurrently)."""
+    with _INTENT_STATS_LOCK:
+        return dict(_INTENT_STATS)
+
+
+def reset_intent_stats() -> None:
+    """Reset all intent counters to zero. Intended for tests."""
+    with _INTENT_STATS_LOCK:
+        for key in _INTENT_STATS:
+            _INTENT_STATS[key] = 0
+
+
+# ── MiniMax intent detection (cascade fallback) ──────────────────────────────
+
+
+def _minimax_configured() -> bool:
+    """True iff a non-blank MINIMAX_API_KEY is set in the environment."""
+    return bool(os.environ.get("MINIMAX_API_KEY", "").strip())
+
+
+def _minimax_intent_timeout() -> float:
+    val = os.environ.get("MINIMAX_INTENT_TIMEOUT", "").strip()
+    try:
+        return float(val) if val else 60.0
+    except ValueError:
+        return 60.0
+
+
+def _minimax_intent_model() -> str:
+    return os.environ.get("MINIMAX_INTENT_MODEL", "MiniMax-M2.7")
+
+
+def _minimax_base_url() -> str:
+    """Strip trailing /v1 from MINIMAX_BASE_URL so we can append /v1/chat/completions."""
+    raw = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.io").rstrip("/")
+    if raw.endswith("/v1"):
+        raw = raw[:-3]
+    return raw
+
+
+def _detect_via_minimax(prompt_context: str) -> IntentResult:
+    """
+    Call the MiniMax chat-completions API for intent detection.
+
+    Uses the same INTENT_SYSTEM_PROMPT and shared _parse_response as BitNet,
+    so the two providers produce interchangeable results. Raises RuntimeError
+    on any failure so the cascade can fall through to the next path.
+
+    Env vars:
+        MINIMAX_API_KEY         required, else RuntimeError
+        MINIMAX_BASE_URL        default https://api.minimax.io
+        MINIMAX_INTENT_MODEL    default MiniMax-M2.7
+        MINIMAX_INTENT_TIMEOUT  seconds, default 60
+    """
+    api_key = os.environ.get("MINIMAX_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("MINIMAX_API_KEY is not set — MiniMax cascade unavailable")
+
+    url = f"{_minimax_base_url()}/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": _minimax_intent_model(),
+        "max_tokens": 80,
+        "temperature": 0.2,
+        "messages": [
+            {"role": "system", "content": INTENT_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt_context},
+        ],
+    }
+    timeout = _minimax_intent_timeout()
+
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            response = client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+        content = data["choices"][0]["message"]["content"]
+    except (httpx.HTTPError, httpx.RequestError, KeyError, IndexError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"minimax_intent_failed: {type(exc).__name__}: {exc}") from exc
+
+    result = _parse_response(content)
+    result.raw_response = content
+    return result
+
+
+# ── Cascade: BitNet → MiniMax → keyword ─────────────────────────────────────
+
+
+def detect_intent_cascade(prompt_context: str) -> IntentResult:
+    """
+    Try BitNet, then MiniMax, then keyword heuristics — return the first success.
+
+    Updates INTENT_STATS counters and emits a single log line per call so the
+    server log and /dev/stats endpoint agree on which path served each request.
+
+    When BITNET_DISABLED=1, BitNet is skipped entirely and the cascade collapses
+    to MiniMax (if configured) → keyword.
+    """
+    # 1) BitNet
+    if not _cfg_disabled():
+        try:
+            client = BitNetClient()
+            result = client._call_llm(prompt_context)
+            _inc("bitnet_ok")
+            logger.info(
+                "intent_path=bitnet intent=%s tags=%s degraded=%s",
+                result.intent, result.detected_tags, result.degraded,
+            )
+            return result
+        except Exception as exc:
+            _inc("bitnet_fail")
+            logger.warning(
+                "intent_path=bitnet_fail err=%s — trying MiniMax cascade", exc,
+            )
+
+    # 2) MiniMax
+    if _minimax_configured():
+        try:
+            result = _detect_via_minimax(prompt_context)
+            _inc("minimax_ok")
+            logger.info(
+                "intent_path=minimax intent=%s tags=%s degraded=%s",
+                result.intent, result.detected_tags, result.degraded,
+            )
+            return result
+        except Exception as exc:
+            _inc("minimax_fail")
+            logger.warning(
+                "intent_path=minimax_fail err=%s — using keyword fallback", exc,
+            )
+    else:
+        logger.debug("intent_path=minimax_skipped reason=no_api_key")
+
+    # 3) Keyword heuristic (always succeeds)
+    _inc("keyword")
+    result = _keyword_fallback(prompt_context)
+    logger.info(
+        "intent_path=keyword intent=%s tags=%s",
+        result.intent, result.detected_tags,
+    )
+    return result
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 
@@ -421,27 +613,39 @@ class BitNetClient:
             )
             return False
 
+    def _call_llm(self, prompt_context: str) -> IntentResult:
+        """
+        Make the BitNet HTTP call and parse the response.
+
+        Raises on any transport, HTTP, or parse failure so callers (notably
+        detect_intent_cascade) can decide whether to fall through to MiniMax
+        or to the keyword heuristic. Does NOT fall back internally — that's
+        the cascade orchestrator's job.
+        """
+        content = _chat_complete(
+            system=INTENT_SYSTEM_PROMPT,
+            user=prompt_context,
+            model=self.model,
+            timeout=self.timeout,
+        )
+        result = _parse_response(content)
+        result.raw_response = content
+        return result
+
     def detect_intent(self, prompt_context: str) -> IntentResult:
         """
         Detect intent and tags from a prompt.
 
         Calls the LLM server. If the call fails (connection refused, timeout,
         malformed response), falls back to keyword heuristics and marks the
-        result as `degraded=True`.
+        result as `degraded=True`. Use `detect_intent_cascade()` instead if
+        you want MiniMax as a fallback before keyword heuristics.
         """
         if _cfg_disabled():
             return _keyword_fallback(prompt_context)
 
         try:
-            content = _chat_complete(
-                system=INTENT_SYSTEM_PROMPT,
-                user=prompt_context,
-                model=self.model,
-                timeout=self.timeout,
-            )
-            result = _parse_response(content)
-            result.raw_response = content
-            return result
+            return self._call_llm(prompt_context)
         except (httpx.HTTPError, httpx.RequestError) as e:
             print(
                 f"[BITNET] LLM call failed: {e}\n"

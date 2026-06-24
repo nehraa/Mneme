@@ -11,6 +11,7 @@ Run:  cd /home/Hermes/Mneme && uv run uvicorn scripts.dev_server:app --host 0.0.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import threading
@@ -22,6 +23,16 @@ from dotenv import load_dotenv
 
 # Load .env before any src.* imports
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+
+# Make sure INFO-level records from src.* loggers reach stdout — uvicorn
+# configures the root logger but not the per-module loggers, so intent_path
+# / bitnet / minimax lines would otherwise be silently dropped.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    stream=sys.stdout,
+    force=True,
+)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -156,9 +167,16 @@ def dev_reload():
 @app.get("/dev/stats")
 def dev_stats():
     """Quick stats for the in-memory repo."""
-    return {
+    stats: dict[str, object] = {
         "chunks": len(REPO._chunks),
         "edges": len(REPO._edges),
         "jsonl_exists": JSONL_PATH.exists(),
         "jsonl_size_mb": round(JSONL_PATH.stat().st_size / 1e6, 2) if JSONL_PATH.exists() else 0,
     }
+    try:
+        from src.retrieval.bitnet_client import get_intent_stats
+
+        stats["intent_stats"] = get_intent_stats()
+    except Exception:
+        stats["intent_stats"] = None
+    return stats
